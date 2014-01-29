@@ -23,14 +23,15 @@
         <div id="wrapper">
           <div id="header">
             <h2>AquaViz</h2>
-            <div id="compound-label"></div>
+            <div id="element-label"></div>
           </div>
           <div id="content">
+            <div id="trash" class="hidden clearfix"><div class="icon"></div><div>Remove</div></div>
             <svg id="canvas"></svg>
             <div id="controls" class="no-selection">
               <div id="list-btns">
                 <button id="samples-btn" title="Samples">Samples</button>
-                <button id="compounds-btn" title="Compounds">Compounds</button>
+                <button id="elements-btn" title="elements">Compounds</button>
               </div>
               <div id="lists">
                 <div id="samples" class="search-list hidden">
@@ -38,13 +39,13 @@
                   <div id="samples-filters" class="clearfix">
                     <button class="clear-sort" title="Original order">Def.</button>
                     <button class="sort" title="Sort by name" data-sort="name"><span class="fade">A&#8594;Z</span></button>
-                    <button class="sort" title="Sort by no. of compounds" data-sort="count"><span class="fade"><img src="/img/sort.png" alt="Count"/></span></button>
+                    <button class="sort" title="Sort by no. of elements" data-sort="count"><span class="fade"><img src="/img/sort.png" alt="Count"/></span></button>
                   </div>
                   <div class="list-container">
                     <ul class="list"></ul>
                   </div>
                 </div>
-                <div id="compounds" class="search-list hidden">
+                <div id="elements" class="search-list hidden">
                   <input class="search" placeholder="Search" />
                   <div class="list-container">
                     <ul class="list"></ul>

@@ -138,7 +138,7 @@ html, body {
     font-weight: normal;
 }
 
-#compound-label {
+#element-label {
     width: 100%;
     margin-left: -120px;
     text-align: center;
@@ -150,6 +150,43 @@ html, body {
     width: 100%;
     height: 100%;
     background-color: black;
+}
+
+#trash {
+    width: 84px;
+    margin: auto;
+    padding: 10px;
+    font-size: .8em;
+    text-align: center;
+    color: #fff;
+}
+
+#trash div {
+    float: left;
+    line-height: 25px;
+    vertical-align: middle;
+}
+
+#trash div.icon{
+    width: 25px;
+    height: 25px;
+    margin-right: 8px;
+    background-image: url('../img/trash.png');
+    background-size: 25px 25px;
+}
+
+#trash.hover {
+    background-color: #fff;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+#trash.hover div {
+    color: #222;
+}
+
+#trash.hover div.icon{
+    background-image: url('../img/trash-hover.png');
 }
 
 #controls {
@@ -278,7 +315,7 @@ psuedo-selector trick */
 
 #controls .search-list .list-container {
     width: 100%;
-    height: 400px;
+    height: 456px;
     overflow-y: scroll;
     background-color: #fff;
     font-size: .75em;
@@ -417,23 +454,18 @@ psuedo-selector trick */
     height: 100%;
 }
 
-rect.pl-box {
-    stroke-width: 0.5px;
-    stroke: white;
+#canvas text{
+    font-size: .8em;
+    font-family: serif;
 }
 
-rect.pl-pixel{
-    fill: rgb(17, 110, 220);
+#canvas text:hover{
+    cursor: default;
 }
 
-
-
-
-
-
-
-
-
+rect.pl-pixel.hover{
+    fill: rgb(175, 208, 240) !important;
+}
 
 
 /* ==========================================================================

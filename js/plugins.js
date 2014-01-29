@@ -22,3 +22,29 @@
 }());
 
 // Place any jQuery/helper plugins in here.
+
+/**
+#### .moveToFront()
+Moves a D3 selection to the front of its parent. Taken from
+http://stackoverflow.com/questions/14167863/how-can-i-bring-a-circle-to-the-front-with-d3
+**/
+d3.selection.prototype.moveToFront = function() {
+  return this.each(function(){
+    this.parentNode.appendChild(this);
+  });
+};
+
+/**
+#### .moveToBack()
+Moves a D3 selection to the back of its parent. Taken from
+http://stackoverflow.com/questions/14167863/how-can-i-bring-a-circle-to-the-front-with-d3
+**/
+d3.selection.prototype.moveToBack = function() { 
+    return this.each(function() { 
+        var firstChild = this.parentNode.firstChild; 
+        if (firstChild) { 
+            this.parentNode.insertBefore(this, firstChild); 
+        } 
+    }); 
+};
+
