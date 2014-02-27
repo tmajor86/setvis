@@ -1,499 +1,828 @@
-/**
+/*******************************************************************************
 main.js
-The main JavaScript functions/controller for the page
-
-Dependencies:
-    jQuery
-    d3
-    list.js
-
-There is a distinction made between a "compound" and "element", as this
-visualization may be used for other domains than AquaViz. Where it is an object,
-function, etc., that will be used in the more generic sense, "element" is used
-to denote it as such, because we are operating on elements of data sets. Where 
-it is something that is directly tied to the AquaViz data and domain, "compound"
-is used.
-**/
+*******************************************************************************/
 $(document).ready(function(){
-    var PIXEL_LAYER_WIDTH        = 184;
-    var PIXEL_LAYER_HEIGHT       = 184;
-    var PIXEL_LAYER_ROW_COUNT    = 15;
-    var PIXEL_LAYER_COLUMN_COUNT = 15;
-    var COMPOUND_COUNT           = PIXEL_LAYER_ROW_COUNT * PIXEL_LAYER_COLUMN_COUNT;
+    // Global functions used to customize PixelLayer display and behavior
+    var valueAccessor = function(d){ return d.value; };
+    var groupAccessor = function(d){ return d.class; };
+    var pixelColor    = function(){
+        // 'this' is the PixelLayer
+        var count = this.expression().count();
+        if(this.__old__){ return d3.rgb(239,72,95); }
+        else if(count == 1){ return d3.rgb(17, 110, 220); }
+        else if(this.operator() === "OR"){ return d3.rgb(255,255,0); }
+        else{ return d3.rgb(156,247,71); }
+    };
+    var labelColor    = function(){
+        // 'this' is the PixelLayer
+        if(isComposite(this)){ return d3.rgb(156,247,71); }
+        else{ return d3.rgb(17, 110, 220); }
+    };
+    var bandScale     = d3.scale.linear()
+        .domain([60,225])
+        .range([2,30]);
     
-    // Read in the data
-    var compounds;
-    var samples;
-    var compoundList;
-    var sampleList;
     
-    // We use a jQuery Deferred object to help manage data loading callbacks.
-    // For more info, see http://api.jquery.com/jQuery.Deferred/
-    var deferred = $.Deferred();
+    /**
+    #### isComposite(PixelLayer)
+    Returns true if this PixelLayer contains more than one data set
+    **/
+    function isComposite(p){
+        return p.expression().count() > 1;
+    }
     
-    // Get the compounds. Any that do not have a count are filtered out.
-    d3.csv("data/aqua/compounds.csv", function(d){
-        return {
-            name: d['Row Labels'],
-            count: parseInt(d['Count of ALL']),
-            class: d['HMDB Class'],
-        }
-    }, function(err, rows){
-        if(rows == null){ deferred.reject(err); }
+    
+    /**
+    ## ListController(elementBtn, elementList, caseBtn, caseList, dataSource)
+    The controller for the lists on the page. Populates the lists from the data
+    source.
+    **/
+    var ListController = function(eb, el, cb, cl, ds){
+        var _elementBtn  = d3.select(eb);
+        var _elementList = d3.select(el);
+        var _caseBtn     = d3.select(cb);
+        var _caseList    = d3.select(cl);
+        var _caseListObj = null;
+        var _dataSource  = ds;
+        var _obj         = {};
         
-        // Pick the top occuring COMPOUND_COUNT compounds
-        compounds = rows.sort(function(a,b){ return b.count-a.count; });
-        compounds = compounds.slice(0,COMPOUND_COUNT);
-        
-        if(compounds != undefined && samples != undefined){
-            deferred.resolve(compounds, samples);
-        }
-    });
+        var _listeners = {
+            'mouseenter.element': [],
+            'mouseenter.case': [],
+            'mouseleave.element': [],
+            'mouseleave.case': [],
+            'click.element': [],
+            'click.case': [],
+            'add.case': [],
+            'populated.elements': [],
+            'populated.cases': [],
+        };
 
-    // Get the samples.
-    d3.text("data/aqua/samples.csv", function(err,txt){
-        if(txt == null){ deferred.reject(err); }
-        samples = d3.csv.parseRows(txt, function(d){
-            return {
-                name: d[0],
-                values: d.slice(1).filter(function(d){ return d != ""; }),
+        /**
+        #### callListeners(event, this, [arg], ...)
+        Calls the listeners of an event. Follows the same format as function.call().
+        **/
+        function callListeners(evt, thisObj){
+            var args = Array.prototype.slice.call(arguments, 2);
+            for(var i = 0; i < _listeners[evt].length; i++){
+                _listeners[evt][i].apply(thisObj, args);
             }
-        }).filter(function(d){ return d.values.length > 0; });
-        if(compounds != undefined && samples != undefined){
-            deferred.resolve(compounds, samples);
         }
-    });
     
-    // This function is called if any errors occurred loading the data
-    deferred.fail(function(err){
-        // TODO Handle errors gracefully
-    });
-    
-    // This function is called when all of the data is loaded
-    deferred.done(function(compounds, samples){
-        // Populate the lists
-        populateCompounds(compounds);
-        populateSamples(samples);
-        // Hook up the list buttons
-        d3.select('#samples-btn').on('click', function(){
-            d3.select('#elements').classed('hidden', true);
-            d3.select('#samples').classed('hidden', function(){
-                return !d3.select(this).classed('hidden');
-            });
-        });
-        d3.select('#elements-btn').on('click', function(){
-            d3.select('#samples').classed('hidden', true);
-            d3.select('#elements').classed('hidden', function(){
-                return !d3.select(this).classed('hidden');
-            });
-        });
-    });
-    
-    /**
-    #### populateCompounds(compounds)
-    Populates the list of compounds.
-    **/
-    function populateCompounds(compounds){
-        // Create a searchable, sortable list using list.js and d3
-        var options = {
-            valueNames: ['name'],
-            page: COMPOUND_COUNT,
-        };
-        d3.select('#elements .list').selectAll('li')
-            .data(compounds)
-        .enter().append('li')
-            .on('mouseover.compound', onPixelMouseover)
-            .on('mouseout.compound', onPixelMouseout)
-            .each(function(d){
-                // Populate the inner elements of the <li>
-                d3.select(this).append('span', true)
-                    .classed('name', true)
-                    .html(d.name);
-            });
-        compoundList = new List('elements', options);
-    }
-    
-    /**
-    #### populateSamples
-    Populates the list of samples.
-    **/
-    function populateSamples(samples){
-        // Create a searchable, sortable list using list.js and d3
-        var options = {
-            valueNames: ['name', 'count', 'class'],
-        };
-        var scale = d3.scale.linear()
-            .domain([0, d3.max(samples, function(d){ return d.values.length; })])
-            .range([0, 100]);
+        /**
+        #### applyListeners(event, this, [arg, ...])
+        Calls the listeners of an event, except it takes an array of arguments
+        instead of positional arguments, like function.apply()
+        **/
+        function applyListeners(evt, thisObj, args){
+            for(var i = 0; i < _listeners[evt].length; i++){
+                _listeners[evt][i].apply(thisObj, args);
+            }
+        }
         
-        // Populate the list of samples
-        d3.select('#samples .list').selectAll('li')
-            .data(samples)
-        .enter().append('li')
-            .each(function(d){
-                // Create the inner elements of the list item. This is a bit
-                // more complicated than using a template, but we need to
-                // specify the click functionality for the "Add" button.
-                var count = d.values.length;
-                var li = d3.select(this);
-                li.append('span')
-                    .classed('name', true)
-                    .html(d.name)
-                li.append('span')
-                    .classed('count', true)
-                    .classed('hidden', true)
-                    .html(count);
-                li.append('div')
-                    .classed('bar', true)
-                    .style('width', scale(count) + "%")
-                li.append('button')
-                    .attr('title', "Add")
-                    .html("+")
-                    .on('click', drawSample);
-            });
+        /**
+        #### populateElements(elements)
+        Populates the list of elements.
+        **/
+        function populateElements(elements){
+            var options = {
+                valueNames: ['name'],
+                page: elements.length,
+            };
+            var items = _elementList.select('.list').selectAll('li')
+                .data(elements);
+                
+            var newItems = items.enter()
+              .append('li')
+                .on('mouseenter.el', function(d){ callListeners('mouseenter.element', this, d); })
+                .on('mouseleave.el', function(d){ callListeners('mouseleave.element', this, d); })
+                .on('click.el', function(d){ callListeners('click.element', this, d); })
+                
+            newItems
+              .append('span')
+                .classed('name', true)
+                .html(function(d){ return d.value; });
+                
+            elementList = new List('elements', options);
+            elementList.sort('name');
+            callListeners('populated.elements', _obj, elementList);
+        };
+        
+        /**
+        #### populateCases
+        Populates the list of cases.
+        **/
+        function populateCases(cases){
+            // Create a searchable, sortable list using list.js and d3
+            var options = {
+                valueNames: ['name', 'count', 'class'],
+            };
+            var scale = d3.scale.linear()
+                .domain([0, d3.max(cases, function(d){ return d.set().count(); })])
+                .range([0, 100]);
+                
+            // Populate the list of samples
+            var items = _caseList.select('.list').selectAll('li')
+                .data(cases);
+            var newItems = items.enter()
+              .append('li');
             
-        // It appears that list.js is storing some things when a List object is
-        // created, preventing things from working correctly if you attempt to
-        // just re-create a List object where there was an old one. Therefore,
-        // we must only create the List object once, but we are free to
-        // completely replace the HTML with the original values when the 'Def.'
-        // button is clicked
-        if(!sampleList){
-            sampleList = new List('samples', options);
-            d3.select('#samples .clear-sort')
-                .on('click', function(d){
-                    d3.selectAll('#samples .sort')
-                        .classed('asc', false)
-                        .classed('desc', false);
-                    d3.selectAll('#samples .list li').remove();
-                    populateSamples(samples);
+            newItems.append('span')
+                .classed('name', true)
+                .html(function(d){ return d.label(); });
+            newItems.append('span')
+                .classed('count', true)
+                .classed('hidden', true)
+                .html(function(d){ return d.set().count(); });
+            newItems.append('div')
+                .classed('bar', true)
+                .style('width', function(d){ return scale(d.set().count()) + "%"; });
+            newItems.append('button')
+                .attr('title', "Add")
+                .html("+")
+                .on('click', function(d){ callListeners('add.case', _obj, d); });
+           
+            
+            // It appears that list.js is storing some things when a List
+            // object is created, preventing things from working correctly if
+            // you attempt to just re-create a List object where there was an
+            // old one. Therefore, we must only create the List object once,
+            // but we are free to completely replace the HTML with the original
+            // values when the 'Def.' button is clicked
+            if(!_caseListObj){
+                _caseListObj = new List('samples', options);
+                _caseList.select('.clear-sort')
+                    .on('click', function(d){
+                        d3.selectAll('#samples .sort')
+                            .classed('asc', false)
+                            .classed('desc', false);
+                        d3.selectAll('#samples .list li').remove();
+                        populateCases(cases);
+                    });
+            }
+        }
+        
+        /**
+        #### .init()
+        Initializes the controller and lists
+        **/
+        _obj.init = function(){
+            var elements = _dataSource.elements().elements();
+            populateElements(elements);
+            populateCases(_dataSource.cases());
+            
+            // Hook up the list buttons
+            _caseBtn.on('click', function(){
+                _elementList.classed('hidden', true);
+                _caseList.classed('hidden', function(){
+                    return !d3.select(this).classed('hidden');
                 });
-        }
-    }
-    
-/************************* PIXELLAYER CONTROLLER CODE *************************/
-    var pixelLayers = [];
-    var overlap = null;
-    var trashOverlap = false;
-    
-    // In order to get the correct boundaries of the trash icon, we need to 
-    // briefly unhide it.
-    d3.select('#trash').classed('hidden', false);
-    var trashBounds = getTrashBounds();
-    d3.select('#trash').classed('hidden', true);
-    
-    /**
-    #### drawSample(sample)
-    Draws a sample using a PixelLayer chart.
-    **/
-    function drawSample(s){
-        var pl = createPixelLayer()
-            .data(s.values, {name: s.name})
-            .render();
-    }
-    
-    /**
-    #### createPixelLayer()
-    Creates and returns a PixelLayer ready to be populated with data and rendered.
-    **/
-    function createPixelLayer(){
-        
-        
-        
-        var pl = PixelLayer('#canvas')
-            .elements(compounds)
-            .width(PIXEL_LAYER_WIDTH)
-            .height(PIXEL_LAYER_HEIGHT)
-            .rows(PIXEL_LAYER_ROW_COUNT)
-            .columns(PIXEL_LAYER_COLUMN_COUNT)
-            .pixelColor(function(d,i){
-                if(pl.preview()){ return d3.rgb(239,72,95); }
-                else if(pl.layerCount() == 1){ return d3.rgb(17, 110, 220); }
-                else if(pl.operator() == "OR"){ return d3.rgb(255,255,0); }
-                else{ return d3.rgb(156,247,71); }
-            })
-            .labelColor(function(d,i){
-                if(pl.layerCount() > 1){ return d3.rgb(156,247,71); }
-                else{ return d3.rgb(17, 110, 220); }
-            })
-            .operator("AND")
-            .on('pixelMouseover', onPixelMouseover)
-            .on('pixelMouseout', onPixelMouseout)
-            .on('mousedown', onMousedown)
-            .on('mouseup', onMouseup)
-            .on('drag', onDrag)
-            .on('dragend', onDragend)
-            .on('labelDrag', onLabelDrag);
-            
-        pixelLayers.push(pl)
-        return pl;
-    }
-    
-    /**
-    #### onPixelMouseover(data)
-    Called when a pixel in a PixelLayer is moused over.
-    **/
-    function onPixelMouseover(d){
-        var name = d.name;
-        var empty = d3.select(this).classed('empty');
-        // Display the element name in the header
-        d3.select('#element-label').html(name);
-        if(!empty){
-            // Highlight the other corresponding pixels
-            d3.selectAll('rect.pl-pixel').classed('hover', function(d){ 
-                var pixel = d3.select(this);
-                return d.name == name && !pixel.classed('empty');
             });
-            // Fade out any PixelLayers that do not have the pixel/element
-            var pl = null;
-            for(var i in pixelLayers){
-                pl = pixelLayers[i];
-                if(pl.pixelValue(name) > 0){ pl.fadeIn(); }
-                else{ pl.fadeOut(); }
-            }
-        }
-    }
-    
-    /**
-    #### onPixelMouseout(data)
-    Called when the mouse leaves a pixel in the PixelLayer.
-    **/
-    function onPixelMouseout(d){
-        d3.select('#element-label').html('');
-        d3.selectAll('rect.pl-pixel').classed('hover', false);
-        for(var name in pixelLayers){
-            pixelLayers[name].fadeIn();
-        }
-    }
-    
-    /**
-    #### onMousedown()
-    Called when the mouse is pressed on a PixelLayer.
-    **/
-    function onMousedown(){
-        // Bring the selected PixelLayer to the top of the SVG
-        this.moveToFront();
-        // Display the trash icon
-        d3.select('#trash').classed("hidden", false);
-    }
-    
-    /**
-    #### onMouseup()
-    Called when the mouse is released on a PixelLayer.
-    **/
-    function onMouseup(){
-        d3.select('#trash').classed("hidden", true);
-    }
-    
-    /**
-    #### onDrag()
-    Called when a PixelLayer is dragged about the canvas.
-    **/
-    function onDrag(){
-        var mouse = d3.mouse(d3.select('#canvas').node());
-        var mouseBounds = {
-            'top': mouse[1],
-            'left': mouse[0],
-            'bottom': mouse[1],
-            'right': mouse[0],
-            'width': 1,
-            'height': 1,
-        }
-        var boxBounds = this.boundingRect();
-        var found = null;
-        // overlap detection with other PixelLayer objects based on mouse
-        for(var i = 0; i < pixelLayers.length; i++){
-            var pl = pixelLayers[i];
-            if(pl === this){ continue; }
-            var otherBounds = pl.boundingRect();
-            if(checkOverlap(mouseBounds, otherBounds)){
-                found = pl;
-                break;
-            }
-        }
-        if(!overlap && found){
-            onOverlap(this, found);
-            overlap = found;
-        }
-        else if(overlap && !found){
-            onOverlapBreak(this, overlap);
-            overlap = null;
-        }
-        else if(overlap && found){
-            // We passed from one overlapping item to another without breaking
-            if(found != overlap){
-                onOverlapBreak(this, overlap);
-                onOverlap(this, found);
-                overlap = found;
-            }
-        }
+            _elementBtn.on('click', function(){
+                _caseList.classed('hidden', true);
+                _elementList.classed('hidden', function(){
+                    return !d3.select(this).classed('hidden');
+                });
+            });
+            return _obj;
+        };
         
-        // overlap detection with the trash icon
-        found = false;
-        if(checkOverlap(boxBounds, trashBounds)){ 
-            found = true; 
-        }
-        if(!trashOverlap && found){
-            trashOverlap = true;
-            d3.select('#trash').classed('hover', true);
-        }
-        else if(trashOverlap && !found){
-            trashOverlap = false;
-            d3.select('#trash').classed('hover', false);
-        }
-    }
+        /**
+        #### .on(event,function)
+        Attaches an event listener for events from this controller.
+        **/
+        _obj.on = function(e,f){
+            _listeners[e].push(f);
+            return _obj;
+        };
+        
+        return _obj;
+    };
+    
     
     /**
-    #### onDragend()
-    Called at the end of a Pixel Layer drag.
-    ***/
-    function onDragend(){
-        if(trashOverlap){
-            onTrashDrop(this);
-        }
-        else if(overlap){
-            onPixelLayerDrop(this, overlap);
-        }
-    }
-    
-    /**
-    #### onLabelDrag
-    Called when a label is being dragged on a PixelLayer
+    ## Controller()
+    The main controller for the page.
     **/
-    function onLabelDrag(l){
-        if(this.layerCount() > 1){
-            // Split the PixelLayer
-            var data = this.data();
-            var children = data.children();
-            var removed;
-            var remainder;
-            for(var i = 0; i < children.length; i++){
-                if(children[i].meta('name') == l){
-                    removed = children.splice(i,1);
+    var Controller = function(canvas, trash, dataSource){
+        var _canvas = canvas;
+        var _trash = trash;
+        var _data = dataSource;
+        var _obj = {};
+        
+        var _pixelLayers = [];
+        var _similarityBands = [];
+        var _masks = [];
+        
+        var _trashBounds = null;
+        var _overlap = null;
+        var _trashOverlap = false;
+        
+        /**
+        #### .onMousedown()
+        Handles the mousedown event from a PixelLayer.
+        **/
+        _obj.onMousedown = function(){
+
+        };
+        
+        /**
+        #### .onMouseup()
+        Handles the mouseup event from a PixelLayer.
+        **/
+        _obj.onMouseup = function(){
+            
+        };
+        
+        /**
+        #### .onElementMouseenter(element)
+        Handles the mouseenter event for an element/pixel.
+        **/
+        _obj.onElementMouseenter = function(element){
+            var value = valueAccessor(element);
+            var empty = d3.select(this).classed('empty');
+            
+            d3.select('#element-label').html(value);
+            if(!empty){
+                // Highlight any other instances of that element
+                d3.selectAll('rect.pixel').classed('hover', function(d){
+                    return valueAccessor(d) === value;
+                });
+                // Fade any pixel layers that do not contain the element
+                _pixelLayers.forEach(function(p){
+                    if(!p.faded() && !p.expression().value(element)){ p.fadeOut(0.4); }
+                });
+                // Fade any bands connecting to faded pixel layers
+                d3.selectAll('path.band')
+                .each(function(d){
+                    if(d.a.faded() || d.b.faded()){
+                        d3.select(this)
+                          .transition()
+                            .duration(500)
+                            .style('opacity', 0.3);
+                    }
+                });
+            }
+        };
+        
+        /**
+        #### .onElementMouseleave(element)
+        Handles the mouseleave event for an element/pixel.
+        **/
+        _obj.onElementMouseleave = function(element){
+            d3.select('#element-label').html("");
+            d3.selectAll('rect.pixel').classed('hover', false);
+            
+            _pixelLayers.forEach(function(p){
+                if(p.faded()){ p.fadeIn(); }
+            });
+            
+            d3.selectAll('path.band')
+            .each(function(d){
+                d3.select(this)
+                  .transition()
+                    .duration(500)
+                    .style('opacity', 1);
+            });
+        };
+        
+        /**
+        #### .onGroupMouseenter(element)
+        Handles the mouseenter event for a group of elements/pixels.
+        **/
+        _obj.onGroupMouseenter = function(group){
+            d3.select('#class-label').html(group);
+        };
+        
+        /**
+        #### .onGroupMouseleave(element)
+        Handles the mouseleave event for a group of elements/pixels.
+        **/
+        _obj.onGroupMouseleave = function(group){
+            d3.select('#class-label').html("");
+        };
+        
+        /**
+        #### .onDragstart()
+        Called when the dragging operation on a PixelLayer object starts.
+        **/
+        _obj.onDragstart = function(){
+            // Bring the dragged PixelLayer object to the front of the layers
+            // externally and internally
+            moveToFront(this);
+            // Display the trash icon
+            d3.select('#trash').classed("hidden", false);
+        };
+        
+        /**
+        #### .onDrag()
+        Called whenever a PixelLayer is dragged about the canvas.
+        **/
+        _obj.onDrag = function(){
+            checkLayerOverlap(this);
+            checkTrashOverlap(this);
+            drawBands();
+            setMasks();
+        };
+        
+        /**
+        #### checkLayerOverlap(PixelLayer)
+        Performs checks to determine if a PixelLayer has been dragged on top
+        of another one. The onLayerOverlapEnter and onLayerOverlapLeave
+        functions are called when the state changes.
+        **/
+        function checkLayerOverlap(pl){
+            var mouse = d3.mouse(d3.select(_canvas).node());
+            var mouseX = mouse[0];
+            var mouseY = mouse[1];
+            var bounds = {
+                'top': mouse[1],
+                'left': mouse[0],
+                'bottom': mouse[1],
+                'right': mouse[0],
+            };
+            var uuid = pl.uuid();
+            var overlap = null;
+            // Find the first layer that is overlapped
+            for(var i = 0; i < _pixelLayers.length; i++){
+                var p = _pixelLayers[i];
+                if(p.uuid() === uuid){ continue; }
+                if(checkOverlap(bounds, p.boundingRect())){ 
+                    overlap = p; 
                     break;
                 }
             }
-            // To maintain the drag, we set the PixelLayer's data as the removed
-            // layer and create a new child with the remaining data. Make a copy
-            // (shallow) of the remaining children.
-            remainder = children.slice(0);
-            removed = removed[0];
-            
-            var newPL = createPixelLayer();
-            var newData = newPL.data();
-            for(var i = 0; i < remainder.length; i++){
-                newData.addChild(remainder[i]);
+            if(_overlap == null && overlap != null){
+                _overlap = p;
+                _obj.onLayerOverlapEnter(pl, _overlap);
             }
-            newPL.x(this.x())
+            else if(_overlap != null && overlap == null){
+                _obj.onLayerOverlapLeave(pl, _overlap);
+                _overlap = null;
+            }
+            else if(_overlap != null && overlap != null){
+                // We passed from one overlapping item to another without
+                // breaking
+                if(p.uuid() != _overlap.uuid()){
+                    _obj.onLayerOverlapLeave(pl, _overlap);
+                    _overlap = p;
+                    _obj.onLayerOverlapEnter(pl, _overlap);
+                }
+            }
+        }
+        
+        /**
+        #### checkTrashOverlap(PixelLayer)
+        Checks for overlap between the given PixelLayer and the trash icon.
+        The onTrashOverlapEnter and onTrashOverlapLeave functions are called
+        when the state changes.
+        **/
+        function checkTrashOverlap(pl){
+            var overlap = checkOverlap(pl.boundingRect(), _trashBounds);
+            if(!_trashOverlap && overlap){
+                _trashOverlap = true;
+                _obj.onTrashOverlapEnter(pl);
+            }
+            else if(_trashOverlap && !overlap){
+                _trashOverlap = false;
+                _obj.onTrashOverlapLeave(pl);
+            }
+        }
+        
+        /**
+        #### getTrashBounds()
+        Returns the bounding rectangle for the trash icon. Requires jQuery
+        **/
+        function getTrashBounds(){
+            // By far, the easiest way to do this is with jQuery. They handle a
+            // lot of cross-browser and calculation junk for you.
+            var trash = $('#trash');
+            var x = trash.offset().left;
+            var y = trash.position().top;
+            var width = trash.outerWidth();
+            var height = trash.outerHeight();
+            return {
+                top: y,
+                left: x,
+                bottom: y + height,
+                right: x + width,
+                width: width,
+                height: height,
+            };
+        }
+        
+        /**
+        #### .onDragend()
+        Called when the dragging of a PixelLayer ends. Calls the onLayerDrop
+        function if the PixelLayer is dropped onto another one.
+        **/
+        _obj.onDragend = function(){
+            if(_trashOverlap){ 
+                _obj.onTrashDrop(this);
+                _trashOverlap = false;
+            }
+            else if(_overlap != null){ 
+                _obj.onLayerDrop(this, _overlap); 
+                _overlap = null;
+            }
+            
+            // Hide the trash icon
+            d3.select('#trash').classed("hidden", true);
+        };
+        
+        /**
+        #### .onLayerOverlapEnter(dragged,overlapped)
+        Called when a PixelLayer beings overlapping another.
+        **/
+        _obj.onLayerOverlapEnter = function(a,b){
+            // Preview the merge that would occur if the layer is dropped onto
+            // the other.
+            a.__old__ = a.expression();
+            b.__old__ = b.expression();
+            
+            var previewExpr = b.__old__.preview(a.__old__);
+            // Force the preview to display an "AND"
+            previewExpr.root().operator('AND'); 
+            a.expression(previewExpr).preview();
+            b.expression(previewExpr).preview();
+        };
+        
+        /**
+        #### .onLayerOverlapLeave(dragged,overlapped)
+        Called when a PixelLayer is no longer overlapping another.
+        **/
+        _obj.onLayerOverlapLeave = function(a,b){
+            // Restore the layers to their "non-preview" state
+            a.expression(a.__old__);
+            b.expression(b.__old__);
+            delete a.__old__;
+            delete b.__old__;
+            a.redraw();
+            b.redraw();
+        };
+        
+        /**
+        #### .onLayerDrop(dragged,target)
+        Called when a PixelLayer is dragged and dropped upon another.
+        **/
+        _obj.onLayerDrop = function(a,b){
+            // Restore the non-preview layers
+            _obj.onLayerOverlapLeave(a,b);
+            
+            // Merge the layers to create a "composite" layer
+            b.expression().merge(a.expression());
+            b.redraw();
+            removeLayer(a);
+            
+            // Update the similarity bands
+            _similarityBands = createBands();
+            drawBands();
+            
+            // Set the masks
+            setMasks();
+        };
+        
+        /**
+        #### .onTrashOverlapEnter(PixelLayer)
+        Called when a PixelLayer is dragged over the trash icon.
+        **/
+        _obj.onTrashOverlapEnter = function(p){
+            d3.select('#trash').classed('hover', true);
+        };
+        
+        /**
+        #### .onTrashOverlapLeave(PixelLayer)
+        Called when a PixelLayer no longer overlaps the trash icon.
+        **/
+        _obj.onTrashOverlapLeave = function(p){
+            d3.select('#trash').classed('hover', false);
+        };
+        
+        /**
+        #### .onTrashDrop(PixelLayer)
+        Called when a PixelLayer is dragged and dropped onto the trash icon.
+        **/
+        _obj.onTrashDrop = function(p){
+            // Call some of the event handlers to reset the state of things
+            _obj.onTrashOverlapLeave(p);
+            if(_overlap != null){ _obj.onLayerOverlapLeave(p,_overlap); }
+            _obj.onElementMouseleave();
+            _obj.onGroupMouseleave();
+            _overlap = null;
+            
+            removeLayer(p);
+            // Update the similarity bands
+            _similarityBands = createBands();
+            drawBands();
+            
+            // Set the masks
+            setMasks();
+        };
+        
+        /**
+        #### removeLayer(PixelLayer)
+        Removes a PixelLayer from the canvas.
+        **/
+        function removeLayer(p){
+            var uuid = p.uuid();
+            for(var i = 0; i < _pixelLayers.length; i++){
+                if(_pixelLayers[i].uuid() === uuid){
+                    _pixelLayers.splice(i,1);
+                    break;
+                }
+            }
+            p.remove();
+        }
+        
+        /**
+        #### moveToFront(PixelLayer)
+        Moves a PixelLayer to the front of the canvas
+        **/
+        function moveToFront(p){
+            p.moveToFront();
+            var uuid = p.uuid();
+            for(var i = 0; i < _pixelLayers.length; i++){
+                if(_pixelLayers[i].uuid() === uuid){
+                    _pixelLayers.splice(i,1);
+                    _pixelLayers.unshift(p);
+                    break;
+                }
+            }
+        }
+        
+        /**
+        #### .onLabelDrag(label)
+        Called when a label belonging to a PixelLayer is dragged.
+        **/
+        _obj.labelDrag = function(l){
+            // We only split when a label with depth 0 is dragged
+            if(!isComposite(this) || l.depth > 0){ return; }
+            
+            // Split the composite layer
+            var node = l.node;
+            var newExpr;
+            if(isOperatorNode(node)){
+                newExpr = SetExpression(node);
+            }
+            else{
+                var newOp = OperatorNode('AND');
+                newOp.addChild(node);
+                newExpr = SetExpression(newOp);
+            }
+            
+            l.parent.removeChild(node);
+            var oldExpr = this.expression();
+            
+            // Create a new PixelLayer in the position of this one.
+            createPixelLayer(oldExpr)
+                .x(this.x())
                 .y(this.y())
                 .render();
-                
-            data.clear();
-            data.addChild(removed);
-            this.redraw();
-            this.moveToFront();
-        }
-    }
-    
-    /**
-    #### onTrashDrop(PixelLayer)
-    Called when a PixelLayer is dropped "into" the trash
-    **/
-    function onTrashDrop(p){
-        remove(p);
-    }
-    
-    /**
-    #### onPixelLayerDrop(PixelLayer, PixelLayer)
-    Called when a PixelLayer is dropped onto another PixelLayer.
-    **/
-    function onPixelLayerDrop(p,r){
-        // Clear the preview on the layers
-        p.clearPreview();
-        r.clearPreview();
-        
-        // For now, we just flatten the expression.
-        var pData = p.data();
-        rData = r.data();
-        var pChildren = pData.children();
-        for(var i = 0; i < pChildren.length; i++){
-            rData.addChild(pChildren[i]);
-        }
-        r.redraw();
-        remove(p);
-    }
-    
-    /**
-    #### onoverlap(PixelLayer, PixelLayer)
-    Called when two PixelLayer charts overlap with one another.
-    **/
-    function onOverlap(a,b){
-        // Draw a preview
-        var aData = a.data();
-        var bData = b.data();
-        var aChildren = aData.children();
-        var bChildren = bData.children();
-        var newData = OperatorNode("AND");
-        for(var i = 0; i < bChildren.length; i++){
-            newData.addChild(bChildren[i]);
-        }
-        for(var i = 0; i < aChildren.length; i++){
-            newData.addChild(aChildren[i]);
-        }
-        a.preview(newData);
-        b.preview(newData);
-    }
-    
-    /**
-    #### onoverlapBreak(PixelLayer, PixelLayer)
-    Called when two PixelLayer charts are no longer overlapping.
-    **/
-    function onOverlapBreak(a,b){
-        a.clearPreview();
-        b.clearPreview();
-    }
-    
-    /**
-    #### checkOverlap(bound, bound)
-    Given two bounding rectangles, returns true if they overlap or intersect.
-    **/
-    function checkOverlap(a,b){
-        return (a.left < b.right && a.right > b.left &&
-                a.top < b.bottom && a.bottom > b.top);
-    }
-    
-    /**
-    #### getTrashBounds()
-    Returns the bounding rect of the trash area. Requires jQuery.
-    **/
-    function getTrashBounds(){
-        var trash = $('#trash');
-        var x = trash.offset().left;
-        var y = trash.position().top;
-        var width = trash.outerWidth();
-        var height = trash.outerHeight();
-        return {
-            'top': y,
-            'left': x,
-            'bottom': y + height,
-            'right': x + width,
-            'width': width,
-            'height': height
+            // Change the expression of this PixelLayer to be the expression
+            // split off from the old. This keeps the dragging intact.
+            moveToFront(this);
+            this.expression(newExpr).redraw();
+            
+            // Update the similarity bands
+            _similarityBands = createBands();
+            drawBands();
+            
+            // Set the masks
+            setMasks();
         };
-    }
-    
-    /**
-    #### remove(PixelLayer)
-    Removes a PixelLayer object from the viz.
-    **/
-    function remove(p){
-        p.remove();
-        for(var i = 0; i < pixelLayers.length; i++){
-            if(pixelLayers[i] === p){
-                pixelLayers.splice(i,1);
-                return;
-            }
+        
+        /**
+        #### clipPoint(point, point, rect)
+        Uses a simplified Lian-Barsky algorithm to determine the clip point of a
+        line (specified by two points) within a rectangle.
+        **/
+        function clipPoint(p1, p2, rect){
+            var p = [p1.x - p2.x, p2.x - p1.x, p1.y - p2.y, p2.y - p1.y];
+            var q = [p1.x - rect.left, rect.right - p1.x, p1.y - rect.top, rect.bottom - p1.y];
+            
+            var u1 = 0;
+            var u2 = 1;
+            d3.range(4).forEach(function(k){
+                // Completely outside the rectangle
+                if(p[k] == 0){
+                    if(q[k] < 0){ return null; }
+                }
+                else{
+                    var u = q[k] / p[k];
+                    // Outside -> inside
+                    if(p[k] < 0 && u1 < u){ u1 = u; }
+                    // Inside -> outside
+                    else if(p[k] > 0 && u2 > u){ u2 = u; }
+                }
+            });
+            
+            // Completely outside the rectangle
+            if (u1 > u2){ return null; }
+            
+            // Return the clipping point
+            return {
+                x: p1.x + (p[1] * u1), 
+                y: p1.y + (p[3] * u1),
+            };
         }
-    }
+        
+        /**
+        #### .drawBands()
+        Draws the similarity bands on the chart
+        **/
+        function drawBands(){
+            var path = d3.svg.diagonal()
+            .source(function(d){
+                return {
+                    x: d.a.x() + (d.a.width() / 2),
+                    y: d.a.y() + (d.a.height() / 2),
+                };
+            })
+            .target(function(d){
+                return {
+                    x: d.b.x() + (d.b.width() / 2),
+                    y: d.b.y() + (d.b.height() / 2),
+                };
+            });
+            
+            var bandG = d3.select(_canvas).select('g.bands');
+            var bands = bandG.selectAll('path.band')
+                .data(_similarityBands);
+                
+            // ENTER
+            bands.enter()
+              .append('path')
+                .classed('band', true);
+                
+            // ENTER + UPDATE
+            bands
+                .attr('d', path)
+                .style('stroke-width', function(d){ return bandScale(d.similarity); })
+                .style('stroke', "white")
+                .style('fill', "none");
+            
+            // EXIT
+            bands.exit().remove();
+        }
+        
+        /**
+        #### setMasks()
+        Sets the masks for masking the bands to the PixelLayers
+        **/
+        function setMasks(){
+            return;
+            
+            var defs = d3.select(_canvas).select('defs');
+            var masks = defs.selectAll('mask')
+                .data(_pixelLayers, function(p){ return p.uuid(); });
+                
+            // ENTER
+            var newMasks = masks.enter()
+              .append('svg:mask')
+                .attr('id', function(p){ return "mask-" + p.uuid(); });
+                
+            newMasks.append('svg:rect')
+                .classed('mask-bg', true)
+                .attr('x', 0)
+                .attr('y', 0)
+                .attr('width', "100%")
+                .attr('height', "100%")
+                .attr('fill', "white")
+                
+            newMasks.append('svg:rect')
+                .classed('mask', true);
+              
+            // UPDATE + ENTER
+            masks
+                .attr('x', function(p){ return p.x(); })
+                .attr('y', function(p){ return p.y(); })
+                .attr('width', function(p){ return p.width(); })
+                .attr('height', function(p){ return p.height(); })
+            masks.selectAll('rect.mask')
+                .attr('x', function(p){ return p.x(); })
+                .attr('y', function(p){ return p.y(); })
+                .attr('width', function(p){ return p.width(); })
+                .attr('height', function(p){ return p.height(); })
+                .attr('fill', "black");
+            
+            masks.exit().remove();
+        }
+        
+        /**
+        #### createBands()
+        Calculates the similarity metric for all PixelLayers on the canvas and
+        creates the corresponding data structures for drawing them.
+        **/
+        function createBands(){
+            // Create all pairs of pixelLayers
+            var combos = combinations(_pixelLayers, 2);
+            var bands = [];
+            var elements = _data.elements();
+            combos.forEach(function(p){
+                bands.push({
+                    a: p[0],
+                    b: p[1],
+                    similarity: p[0].expression().similarity(p[1].expression(), elements),
+                });
+            });
+            return bands;
+        }
+        
+        /**
+        #### createPixelLayer(expression)
+        Creates a new pixellayer object from the given set expression.
+        **/
+        function createPixelLayer(expression){
+            var pl = PixelLayer(_canvas + " g.layers")
+                .elements(_data.elements().elements())
+                .expression(expression)
+                .pixelColor(pixelColor)
+                .labelColor(labelColor)
+                .on('mousedown', _obj.onMousedown)
+                .on('mouseup', _obj.onMouseup)
+                .on('mouseenter.pixel', _obj.onElementMouseenter)
+                .on('mouseleave.pixel', _obj.onElementMouseleave)
+                .on('mouseenter.group', _obj.onGroupMouseenter)
+                .on('mouseleave.group', _obj.onGroupMouseleave)
+                .on('dragstart', _obj.onDragstart)
+                .on('drag', _obj.onDrag)
+                .on('dragend', _obj.onDragend)
+                .on('drag.label', _obj.labelDrag);
+            _pixelLayers.unshift(pl);
+            return pl;
+        }
+        
+        /**
+        #### .drawPixelLayer(dataCase)
+        Draws a new PixelLayer.
+        **/
+        _obj.drawPixelLayer = function(dataCase){
+            // Construct the SetExpression
+            var node = DataNode(dataCase);
+            var operator = OperatorNode('AND');
+            var expression = SetExpression(operator);
+            operator.addChild(node);
+            
+            createPixelLayer(expression).render();
+            
+            // Update the similarity bands
+            _similarityBands = createBands();
+            drawBands();
+            
+            // Set the masks
+            setMasks();
+        };
+        
+        /**
+        #### .init()
+        Initializes the contoller.
+        **/
+        _obj.init = function(){
+            // In order to get the correct boundaries of the trash icon, we
+            // need to briefly unhide it.
+            d3.select(_trash).classed('hidden', false);
+            _trashBounds = getTrashBounds();
+            d3.select(_trash).classed('hidden', true);
+            
+            // Create the definition container for masks
+            d3.select(_canvas).append('svg:defs')
+                .classed('defs', true);
+            
+            // Create the groups for the bands and the pixelLayers
+            d3.select(_canvas).append('svg:g')
+                .classed('bands', true);
+            d3.select(_canvas).append('svg:g')
+                .classed('layers', true);
+            
+            return _obj;
+        };
+        
+        return _obj;
+    };
+
+
+    // Load the data
+    var dataSource = AquaDataSource('data/aqua/order.csv', 'data/aqua/samples.csv')
+    .on('success', function(elements, cases){
+        // Initialize the main controller
+        var controller = Controller("#canvas", "#trash", this).init();
+        
+        // Initialize the lists
+        var listController = ListController(
+            '#elements-btn',
+            '#elements',
+            '#samples-btn',
+            '#samples',
+            this
+        )
+        // Set up cross-controller communication
+        .on('add.case', controller.drawPixelLayer)
+        .on('mouseenter.element', controller.onElementMouseenter)
+        .on('mouseenter.element', function(d){ controller.onGroupMouseenter(groupAccessor(d)); })
+        .on('mouseleave.element', controller.onElementMouseleave)
+        .on('mouseleave.element', function(d){ controller.onGroupMouseleave(groupAccessor(d)); })
+        .init();
+    });
     
+    dataSource.load();
 });

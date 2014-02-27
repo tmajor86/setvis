@@ -1,203 +1,17 @@
 /*
     TODO Add clipping mask to labels
-    TODO Are we interested in negation, i.e. NOT?
     TODO Document the events from PixelLayer
-    TODO Non-linear interpolation of colors for OR?
-    TODO Better way to set data of a pixel layer
     TODO Zooming
+    TODO Hide/Show labels depth > 1 with mouseover
+    FIXME Labels w/ depth > 1 don't have gap
 */
 
-/**
-The following two data structures are used to construct an expression tree that
-represents the ANDing and ORing (intersection and union) of different data sets.
-An arbitrary expression can be created using two types of nodes: operator nodes
-and data nodes.
-
-Operator nodes represent one of the set operators: AND or OR. They may have 
-other nodes as children. Data nodes represent a set of items. They compose the
-leaves of the tree.
-
-The membership of an element (e.g. compound) in the data set represented by an
-expression tree can be calculated by calling the pixelValue() function on the
-OperatorNode at the root of the tree. The value returned is in the range [0,1].
-The OR operator can produce a non-integer number - rather than calculating a
-binary 0 or 1 if an element is in the unioned set, a fraction is returned
-representing how many of the unioned subsets contained the element (# of
-subsets containing the element / # of subsets).
-**/
 
 /**
-## OperatorNode([operator])
-Creates an operator node with the given operator. The current operators
-supported are: "AND" and "OR". Default is "AND".
+## BandScale
+Produces a scale that can be used to draw a band of items, much like
+d3.scale.ordinal().rangeBands(), but with fixed pixel padding.
 **/
-function OperatorNode(operator){
-    var _obj = {};
-    var _operator = operator || "AND";
-    var _children = [];
-    
-    /**
-    #### .operator([value])
-    Gets or sets the operator associated with this node.
-    **/
-    _obj.operator = function(o){
-        if(!arguments.length){ return _operator; }
-        _operator = o;
-        return _obj;
-    };
-    
-    /**
-    #### .addChild(node)
-    Adds a child to this node. It can be another OperatorNode or a DataNode.
-    **/
-    _obj.addChild = function(n){
-        _children.push(n);
-        return _obj;
-    };
-    
-    /**
-    #### .children()
-    Returns the children of this node
-    **/
-    _obj.children = function(){
-        return _children;
-    }
-    
-    
-    /**
-    #### .findDescendant(meta)
-    Finds a descendant with the given metadata. Returns the node.
-    **/
-    _obj.findDescendant = function(m){
-        
-        
-    };
-    
-    /**
-    #### .removeDescendant(node)
-    Removes a descendant from this operator.
-    **/
-    _obj.removeDescendant = function(n){
-        
-    };
-    
-    /**
-    #### .clear()
-    Removes any children from this node.
-    **/
-    _obj.clear = function(){
-        _children = [];
-        return _obj;
-    }
-
-    /**
-    #### .pixelValue(element)
-    Returns the calculated value for an element based on the subtree of this
-    node. It is a value in the range [0,1].
-    **/
-    _obj.pixelValue = function(element){
-        var curChild;
-        if(_operator == "AND"){
-            for(var i = 0 ; i < _children.length; i++){
-                curChild = _children[i];
-                if(curChild.data && !curChild.data().has(element)){ return 0; }
-                else if(curChild.pixelValue && curChild.pixelValue(element) == 0){ return 0; }
-            }
-            return 1;
-        }
-        else if(_operator == "OR"){
-            var sum = 0;
-            for(var i = 0; i < _children.length; i++){
-                curChild = _children[i];
-                if(curChild.data && curChild.data().has(element)){ sum += 1; }
-                // TODO: What do you do with an OR of an OR? Do you add the
-                // decimal or do you round it up?
-                // else if(curChild.pixelValue && curChild.pixelValue(element) > 0){ sum += 1; }
-                else if(curChild.pixelValue){ sum += curChild.pixelValue(element); }
-            }
-            return parseFloat(sum) / _children.length;
-        }
-    };
-    
-    /**
-    #### .metadata()
-    Returns the metadata of all children.
-    **/
-    _obj.metadata = function(){
-        var meta = [];
-        _obj.accept({
-            visitPre: function(){ return; },
-            visitPost: function(n){ if(n.meta){ meta.push(n.meta()); }}
-        });
-        return meta;
-    };
-    
-    /**
-    #### .accept(visitor)
-    Implements the visitor pattern to allow various operations on this subtree.
-    **/
-    _obj.accept = function(v){
-        v.visitPre(_obj);
-        for(var i = 0; i < _children.length; i++){
-            _children[i].accept(v);
-        }
-        v.visitPost(_obj);
-    };
-    
-    return _obj;
-}
-
-
-/**
-## DataNode(data, [meta])
-This node represents a data set in the boolean expression tree. These nodes
-are found at the leaves of the tree.
-**/
-function DataNode(data, meta){
-    var _obj = {};
-    var _data = d3.set(data);
-    var _meta = meta || {};
-    _meta.count = _data.values().length;
-    
-    /**
-    #### .meta([key], [value])
-    Gets or sets metadata for this data set. If no arguments are given, the
-    entire metadata object is returned. A 'count' metadata value is always
-    made available with the number of items in the data set.
-    **/
-    _obj.meta = function(k,v){
-        if(!arguments.length){ return _meta; }
-        if(arguments.length == 1){ return _meta[k]; }
-        _meta[k] = v;
-        return _obj;
-    };
-    
-    /**
-    #### .data([array])
-    Gets or sets the data associated with this node. It is coerced into a set.
-    **/
-    _obj.data = function(a){
-        if(!arguments.length){ return _data; }
-        _data = d3.set(a);
-        _meta.count = _data.values().length;
-        return _obj;
-    };
-    
-    /**
-    #### .accept(visitor)
-    Implements the visitor pattern to allow various operations on this node.
-    **/
-    _obj.accept = function(v){
-        v.visitPre(_obj);
-        v.visitPost(_obj);
-    };
-    
-    return _obj;
-}
-
-
-// Produces a scale that can be used to draw a band of items, much like
-// d3.scale.ordinal().rangeBands(), but with fixed pixel padding.
 function BandScale(){
     var _padding = 0;
     var _outerPadding = 0;
@@ -252,415 +66,545 @@ function BandScale(){
 
 
 /**
-## PixelLayer(svg)
-Draws a PixelLayer chart in the given SVG element.
+## PixelLayer(anchor, defs)
+Draws a PixelLayer chart in the given SVG or G element.
 **/
-function PixelLayer(svg){
-    var _svg = svg;
-    var _root = d3.select(_svg);
+function PixelLayer(anchor){
+    var _anchor = anchor;
+    var _root = d3.select(_anchor);
     var _g = null;
     var _innerG = null;
-    var _labelG = null;
+    var _outerG = null;
+    var _defs = null;
+    var _uuid = createUUID();
     var _chart = {};
-    var _x = 0;
-    var _y = 0;
+    
+    var _elements = null;
+    var _expression = null;
+    
     var _width = 184;
     var _height = 184;
+    var _xPos = 0;
+    var _yPos = 0;
     var _columns = 15;
     var _rows = 15;
+    
     var _pixelGap = 3;
     var _pixelColor = function(d,i){ return d3.rgb(17, 110, 220); }
     var _labelColor = function(d,i){ return d3.rgb(17, 110, 220); }
-    var _labelText = function(d,i){ return d.name; }
     var _borderColor = d3.rgb(255,255,255);
     var _borderWidth = 0.5;
-    var _elements = [];
-    var _data = OperatorNode("AND");
-    var _preview = null;
+    var _groupColor = function(d,i){ return d3.rgb(255, 248, 191); }
+    var _groupWidth = 1;
+    
+    var _valueAccessor = function(d,i){ return d.value; }
+    var _groupAccessor = function(d,i){ return d.class; }
+    
+    var _faded = false;
+    
+    
+    // The event listeners available for this chart
     var _listeners = {
-        'preRender': [],
-        'postRender': [],
-        'pixelMouseover': [],
-        'pixelMouseout': [],
-        'pixelClick': [],
-        'mousedown': [],
-        'mouseup': [],
-        'click': [],
         'dragstart': [],
         'drag': [],
         'dragend': [],
-        'labelDrag': [],
+        'mouseenter': [],
+        'mouseleave': [],
+        'mousedown': [],
+        'mouseup': [],
+        'click': [],
+        'mouseenter.pixel': [],
+        'mouseleave.pixel': [],
+        'mousedown.pixel': [],
+        'mouseup.pixel': [],
+        'click.pixel': [],
+        'mouseenter.group': [],
+        'mouseleave.group': [],
+        'drag.label': [],
     };
     
-    // The drag behavior.
+    // The drag behavior
     var _dragging = false;
-    var _dragLabel = null;
+    var _label = null;
     var _drag = d3.behavior.drag()
     .origin(function(){ return {'x': _chart.x(), 'y': _chart.y()}; })
     .on('dragstart', function(){
         _dragging = true;
         callListeners('dragstart', _chart);
     })
-    .on('drag', function(){
+    .on('drag', function(d,i){
         _chart.x(d3.event.x);
         _chart.y(d3.event.y);
-        _innerG.attr('transform', "translate(" + d3.event.x + "," + d3.event.y + ")");
-        _labelG.attr('transform', "translate(" + d3.event.x + "," + d3.event.y + ")");
+        _g.attr('transform', "translate(" + _chart.x() + "," + _chart.y() + ")");
         callListeners('drag', _chart);
-        if(_dragLabel != null){
-            callListeners('labelDrag', _chart, _dragLabel);
-            _dragLabel = null;
+        // If the drag originated with a label, we need to fire the "drag.label"
+        // event.
+        if(_label){
+            var data = {
+                parent: _label.parent,
+                node: _label.node, 
+                depth: _label.depth,
+            };
+            callListeners('drag.label', _chart, data);
+            _label = null;
         }
     })
     .on('dragend', function(){
         _dragging = false;
+        _split = false;
         callListeners('dragend', _chart);
     });
     
     /**
     #### reset()
-    Resets the chart, recreating the top-level elements.
+    Resets the chart, clearing its main elements.
     **/
     function reset(){
         if(_g){ _g.remove(); }
         
-        // The PixelLayer contains three major svg:g elements. The outer, main
-        // g element, an inner g element, and a g element for labels. This is
-        // necessary for drag behavior to work correctly (ask Tim for an
-        // explaination if you'd like). Dragging occurs on the inner g, removing
-        // conflicts with clicks, etc., on the labels.
-        _g = _root.append('svg:g')
-            .classed("pl", true);
-            
-        _innerG = _g.append('g')
-            .on('mousedown', function(d){ callListeners('mousedown', _chart); })
-            .on('mouseup', function(d){ callListeners('mouseup', _chart); })
-            .on('click', function(d){ callListeners('click', _chart); })
-            .call(_drag);
+        _g      = _root.append('svg:g').classed('pl', true);
+        _outerG = _g.append('svg:g').classed('outer', true);
+        _innerG = _outerG.append('svg:g').classed('inner', true);
         
+        // Move to the x and y position
+        _g.attr('transform', "translate(" + _chart.x() + "," + _chart.y() + ")");
+            
+        // Create the labels at the top of the PixelLayer. They do not change.
+        drawCompositeLabels();
+            
+        // Create the border
+        var borderWidth = _chart.borderWidth();
         _innerG.append('svg:rect')
-            .classed("pl-box", true)
+            .classed('pl-box', true)
             .attr('width', _chart.width())
             .attr('height', _chart.height())
             .style('fill-opacity', 0.5)
             .style('stroke', _chart.borderColor())
             .style('stroke-width', _chart.borderWidth());
             
-        _labelG = _g.append('g');
+        // Create the area for pixels
+        _innerG.append('svg:g')
+            .classed('pl-pixels', true)
+            .attr('transform', "translate(0,0)");
+            
+        // Create the area for expression labels
+        _innerG.append('svg:g')
+            .classed('pl-labels', true)
+            .attr('transform', "translate(" + (0 - borderWidth) + "," + (_chart.height() - borderWidth) + ")");
+            
+        // Hook up the events
+        _g
+            .on('mouseenter', function(){ if(!_dragging){ callListeners('mouseenter', _chart); } })
+            .on('mouseleave', function(){ if(!_dragging){ callListeners('mouseleave', _chart); } })
+            .on('mousedown', function(){ callListeners('mousedown', _chart); })
+            .on('mouseup', function(){ callListeners('mouseup', _chart); })
+            .on('click', function(){ callListeners('click', _chart); })
+            .call(_drag);
     }
     
     /**
-    #### render()
-    Renders the chart from scratch.
+    #### createPixelGroups()
+    Creates the data of the pixel groups.
     **/
-    function render(){
-        reset();
-        _innerG.attr('transform', "translate(" + _chart.x() + "," + _chart.y() + ")");
-        _labelG.attr('transform', "translate(" + _chart.x() + "," + _chart.y() + ")");
-        drawLabels();
-        drawPixels();
-    }
-    
-    /**
-    #### redraw()
-    Redraws the chart without recreating everything.
-    **/
-    function redraw(){
-        _innerG.attr('transform', "translate(" + _chart.x() + "," + _chart.y() + ")");
-        _labelG.attr('transform', "translate(" + _chart.x() + "," + _chart.y() + ")");
-        drawLabels();
-        drawPixels();
-    }
-    
-    /**
-    #### preview()
-    Redraws the main body of the chart without updating the labels.
-    **/
-    function preview(){
-        _innerG.attr('transform', "translate(" + _chart.x() + "," + _chart.y() + ")");
-        _labelG.attr('transform', "translate(" + _chart.x() + "," + _chart.y() + ")");
-        drawPixels();
-    }
-    
-    /**
-    #### drawLabels(){
-    Draws the labels on the PixelLayer
-    **/
-    function drawLabels(){
-        drawMetaLabels();
-        drawOperatorLabels();
-    }
-    
-    /**
-    #### drawMetaLabels()
-    Draws the labels at the bottom of the PixelLayer, displaying any metadata
-    specified by chart.labelText().
-    **/
-    function drawMetaLabels(){
-        var metadata = _data.metadata();
-        var width = _chart.width();
-        var height = _chart.height();
-        var borderWidth = _chart.borderWidth();
-        var labelCount = metadata.length;
-        var labelColor = _chart.labelColor();
-        var labelText = _chart.labelText();
-        var labelScale = BandScale().domain(d3.range(labelCount))
-            .rangeBands([0, width + (2 * borderWidth)], 2);
+    function createPixelGroups(){
+        var columnCount = _chart.columns();
+        var rowCount = _chart.rows();
         
-        // JOIN
-        var labels = _innerG.selectAll('g.pl-label').data(metadata);
-        
-        // UPDATE
-        // Update the existing labels.
-        labels.each(function(d,i){
-            var g = d3.select(this);
-            g.select('rect')
-                .attr('width', labelScale.rangeBand())
-                .style('fill', labelColor(d,i));
-            if(labelCount <= 1){
-                g.select('text.label-text')
-                    .attr('text-anchor', "start")
-                    .attr('x', 4)
-                    .attr('y', 15)
-                    .text(labelText(d,i));
-                    
-                if(g.select('text.label-count').empty()){
-                    g.append('text')
-                        .classed('no-selection', true)
-                        .classed('label-count', true)
-                        .attr('text-anchor', "end")
-                        .attr('x', labelScale.rangeBand() - 4)
-                        .attr('y', 15)
-                        .text(d.count);
-                }
-            }
-            else{
-                g.select('text.label-text')
-                    .attr('text-anchor', "middle")
-                    .attr('x', labelScale.rangeBand() / 2)
-                    .attr('y', 15)
-                    .text(labelText(d,i));
-                g.select('text.label-count').remove();
-            }
-        });
-        
-        // ENTER
-        // Create new labels as needed
-        labels.enter().append('g')
-            .classed('pl-label', true)
-            .each(function(d,i){
-                var g = d3.select(this);
-                g.append('rect')
-                    .attr('width', labelScale.rangeBand())
-                    .attr('height', 20)
-                    .style('fill', labelColor(d,i));
-                
-                // If only one layer, justify the text
-                if(metadata.length <= 1){
-                    g.append('text')
-                        .classed('no-selection', true)
-                        .classed('label-text', true)
-                        .attr('text-anchor', "start")
-                        .attr('x', 4)
-                        .attr('y', 15)
-                        .text(labelText(d,i));
-                    g.append('text')
-                        .classed('no-selection', true)
-                        .classed('label-count', true)
-                        .attr('text-anchor', "end")
-                        .attr('x', labelScale.rangeBand() - 4)
-                        .attr('y', 15)
-                        .text(d.count);
-                }
-                // If multiple layers, center the text
-                else{
-                    g.append('text')
-                        .classed('no-selection', true)
-                        .classed('label-text', true)
-                        .attr('text-anchor', "middle")
-                        .attr('x', labelScale.rangeBand() / 2)
-                        .attr('y', 15)
-                        .text(labelText(d,i));
-                }
-            })
-            .on('mousedown', function(d,i){
-                _dragLabel = labelText(d,i);
-            })
-            .on('mouseup', function(){
-                _dragLabel = null;
+        // Calculate the values of the pixels
+        var expression = _chart.expression();
+        var valueAccessor = _chart.valueAccessor();
+        var groupAccessor = _chart.groupAccessor();
+        var data = _chart.elements()
+            .slice(0,(rowCount * columnCount))
+            .map(function(d,i){
+                var row = parseInt(i / rowCount);
+                var col = i - row * rowCount;
+                return {
+                    value: valueAccessor(d),
+                    pixelValue: expression.value(d),
+                    group: groupAccessor(d),
+                    element: d,
+                    row: row,
+                    column: col,
+                    index: i,
+                };
             });
             
-        // ENTER + UPDATE
-        // The update selection now includes new elements.
-        labels.attr('transform', function(d,i){
-            return "translate(" + (labelScale(i) - borderWidth) + "," + height + ")";
-        });
+        // Nest by groups, calculating the top right and bottom left pixels that
+        // belong to each group.
+        var groupRectDict = {};
+        var pixelsByGroup = d3.nest()
+            .key(function(d){ return d.group; })
+            .sortValues(function(a,b){ return d3.ascending(a.index, b.index); })
+            .entries(data)
+            .map(function(g){
+                g.tl = g.values[0];
+                g.br = g.values[g.values.length - 1];
+                return g;
+            });
+
+        return pixelsByGroup;
+    }
+    
+    /**
+    #### drawPixelGroups()
+    Draws the groups of pixels of the chart.
+    **/
+    function drawPixelGroups(){
+        var data = createPixelGroups();
         
+        // Create the svg groups
+        var pixelG = _innerG.select('g.pl-pixels')
+        var groups = pixelG.selectAll('g.pixel')
+            .data(data, function(d){ return d.key; })
+            
+        // ENTER GROUPS
+        groups.enter()
+          .append('svg:g')
+            .classed('pixel', true)
+            .on('mouseenter', function(d){ 
+                // Ignore the "null" group or when we are dragging
+                if(d.key.trim() === "" || _dragging){ return; }
+                d3.select(this).select('rect.pixel-border')
+                    .classed('invisible', false);
+                callListeners('mouseenter.group', this, d.key);
+            })
+            .on('mouseleave', function(d){
+                if(d.key.trim() === "" || _dragging){ return; }
+                d3.select(this).select('rect.pixel-border')
+                    .classed('invisible', true); 
+                callListeners('mouseleave.group', this, d.key);
+            })
+            .each(function(d){
+                // Create a border if the group is not null
+                if(d.key.trim() != ""){
+                    d3.select(this).append('svg:rect')
+                        .datum(d)
+                        .classed('pixel-border', true)
+                        .classed('invisible', true);
+                }
+            });
+
+        // ENTER + UPDATE GROUPS
+        drawGroupBorders(groups);
+        drawPixels(groups);
+        
+        // EXIT GROUPS
+        groups.exit().remove();
+    }
+
+    /**
+    #### drawPixels(selection)
+    Draws the pixels within their groups.
+    **/
+    function drawPixels(groups){
+        var width = _chart.width() - _chart.borderWidth();
+        var height = _chart.height() - _chart.borderWidth();
+        var columnCount = _chart.columns();
+        var rowCount = _chart.rows();
+        var pixelGap = _chart.pixelGap();
+        var pixelColor = _chart.pixelColor();
+        var xScale = BandScale().domain(d3.range(columnCount))
+            .rangeBands([0, width], pixelGap, 4);
+        var yScale = BandScale().domain(d3.range(rowCount))
+            .rangeBands([0, height], pixelGap, 4);
+            
+        var pixels = groups.selectAll('rect.pixel')
+            .data(function(d){ return d.values; });
+            
+        // ENTER
+        pixels.enter()
+          .append('svg:rect')
+            .classed('pixel', true)
+            .on('mouseenter', function(d,i){
+                if(_dragging){ return; }
+                d3.select(this).classed('hover', true);
+                callListeners('mouseenter.pixel', this, d.element, i);
+            })
+            .on('mouseleave', function(d,i){
+                if(_dragging){ return; }
+                d3.select(this).classed('hover', false);
+                callListeners('mouseleave.pixel', this, d.element, i);
+            })
+            .on('mousedown', function(d,i){ callListeners('mousedown.pixel', this, d.element, i); })
+            .on('mouseup', function(d,i){ callListeners('mouseup.pixel', this, d.element, i); })
+            .on('click', function(d,i){ callListeners('click.pixel', this, d.element, i); });
+        
+        // ENTER + UPDATE
+        pixels
+            .classed('empty', function(d){ return d.pixelValue == 0; })
+            .attr('width', xScale.rangeBand())
+            .attr('height', yScale.rangeBand())
+            .attr('transform', function(d,i){
+                return "translate(" + xScale(d.column) + "," + yScale(d.row) + ")";
+            })
+            .style('fill-opacity', function(d){ return d.pixelValue > 0 ? 1 : 0; })
+            .style('fill', function(d,i){
+                var color = pixelColor.call(_chart,d,i);
+                return d3.interpolateRgb(d3.rgb(0,0,0), color)(d.pixelValue);
+            });
+            
         // EXIT
-        // Remove any extras
+        pixels.exit().remove();
+    }
+    
+    /**
+    #### drawGroups(selection)
+    Draws the group borders around the pixels. This assumes that the pixels are
+    ordered such that each group has arectangular area.
+    **/
+    function drawGroupBorders(groups){
+        var width = _chart.width() - _chart.borderWidth();
+        var height = _chart.height() - _chart.borderWidth();
+        var columnCount = _chart.columns();
+        var rowCount = _chart.rows();
+        var pixelGap = _chart.pixelGap();
+        var groupWidth = _chart.groupWidth();
+        var groupColor = _chart.groupColor();
+        var xScale = BandScale().domain(d3.range(columnCount))
+            .rangeBands([0, width], pixelGap, 4);
+        var yScale = BandScale().domain(d3.range(rowCount))
+            .rangeBands([0, height], pixelGap, 4);
+        
+        groups.select('rect.pixel-border')
+            .attr('x', function(d){
+                return xScale(d.tl.column) - (pixelGap / 2);
+            })
+            .attr('y', function(d){ 
+                return yScale(d.tl.row) - (pixelGap / 2);
+            })
+            .attr('width', function(d){
+                return xScale(d.br.column) - xScale(d.tl.column) + pixelGap + xScale.rangeBand();
+            })
+            .attr('height', function(d){
+                return yScale(d.br.row) - yScale(d.tl.row) + pixelGap + yScale.rangeBand();
+            })
+            .style('stroke', groupColor)
+            .style('stroke-width', groupWidth)
+            .style('fill-opacity', 0);
+    }
+    
+    /**
+    #### drawLabels()
+    Draws the labels around the chart.
+    **/
+    function drawLabels(){
+        drawDataLabels();
+        updateCompositeLabels();
+    }
+    
+    /**
+    #### drawDataLabels()
+    Draws the labels at the bottom of the PixelLayer showing the structure.
+    **/
+    function drawDataLabels(){
+        var width = _chart.width() + (2 * _chart.borderWidth());
+        var margin = _chart.borderWidth() + _chart.pixelGap();
+        var color = _chart.labelColor();
+        var generator = LabelGenerator()
+            .width(width)
+            .labelHeight(20)
+            .gap(2);
+        
+        var data = generator(_chart.expression().root());
+        var count = data.length;
+        var labelG = _innerG.select('g.pl-labels');
+        var labels = labelG.selectAll('g.label')
+            .data(data);
+        
+        // ENTER
+        var newLabels = labels.enter()
+          .append('svg:g')
+            .classed('label', true)
+            .on('mousedown', function(d){ _label = d; });
+        newLabels.append('svg:rect')
+            .classed('label', true);
+        newLabels.append('svg:text')
+            .classed('label', true);
+        newLabels.append('svg:text')
+            .classed('count', true);
+        
+        // ENTER + UPDATE
+        labels
+            .attr('transform', function(d){ return "translate(" + d.x + "," + d.y + ")"; });
+        labels.select('rect')
+            .attr('width', function(d) { return d.dx; })
+            .attr('height', function(d) { return d.dy; })
+            .attr('fill', function(d,i){ return color.call(_chart,d,i); });
+        labels.select('text.label')
+            .attr('text-anchor', function(){ 
+                if(count == 1){ return "start"; }
+                else{ return "middle"; }
+            })
+            .attr('x', function(d){ 
+                if(count == 1){ return margin; }
+                else{ return d.dx / 2; }
+            })
+            .attr('y', 15)
+            .text(function(d){ return d.label; });
+        labels.select('text.count')
+            .attr('text-anchor', "end")
+            .attr('x', width - margin)
+            .attr('y', 15)
+            .text(function(d){ return d.count; })
+            .classed('hidden', function(d){ return count > 1; });
+            
+        // EXIT
         labels.exit().remove();
     }
     
-    function drawOperatorLabels(){
-        var count = _chart.layerCount();
-        var countData = [count];
-        var operator = _chart.operator();
-        var operatorData = [operator];
-        var labelColor = _chart.labelColor();
-        var borderWidth = _chart.borderWidth();
-        var width = _chart.width();
-        if(count < 2){ 
-            countData = [];
-            operatorData = []; 
+    /**
+    ## LabelGenerator
+    Creates a layout generator for the data labels. It functions similarly to
+    d3.layout.partition, recursing a hierarchy to position nodes. The call
+    to generate the labels returns an array of nodes to be drawn.
+    **/
+    var LabelGenerator = function(){
+        var _gap;
+        var _width;
+        var _labelHeight;
+        
+        function recurse(node, parent, depth, x, dx, nodes) {
+            var children = isOperatorNode(node) ? node.children() : null;
+            var nodeObj = {
+                depth: depth,
+                node: node,
+                parent: parent,
+                label: isOperatorNode(node) ? node.operator() : node.data().label(),
+                count: isOperatorNode(node) ? null : node.data().set().count(),
+                x: x,
+                y: (depth * _labelHeight),
+                dx: dx,
+                dy: _labelHeight,
+            };
+            if(depth > 0){ nodeObj.y += _gap; } // FIXME
+            nodes.push(nodeObj);
+            
+            if(children){
+                var scale = BandScale()
+                    .domain(d3.range(children.length))
+                    .rangeBands([0, dx], _gap, 0);
+                children.forEach(function(c,i){
+                    recurse(c, node, depth + 1, scale(i) + x, scale.rangeBand(), nodes);
+                });
+            }
         }
         
-        // OPERATOR LABEL
-        var opLabel = _labelG.selectAll('g.pl-operator').data(operatorData);
-        // ENTER
-        opLabel.enter().append('g')
-            .classed('pl-operator', true)
-            .attr('transform', function(d,i){
-                return "translate(" + (0 - borderWidth) + ", -20)";
-            })
-            .each(function(d,i){
-                var g = d3.select(this);
-                g.append('rect')
-                    .attr('width', 40)
-                    .attr('height', 20);
-                g.append('text')
-                    .classed('no-selection', true)
-                    .attr('text-anchor', "middle")
-                    .attr('x', 20)
-                    .attr('y', 15);
-            })
-            .on('click', function(d,i){
+        var _obj = function(root){
+            var nodes = [];
+            recurse(root, null, -1, 0, _width, nodes);
+            nodes.shift();
+            return nodes;
+        };
+        
+        _obj.gap = function(g){
+            if(!arguments.length){ return _gap; }
+            _gap = g;
+            return _obj;
+        };
+        
+        _obj.width = function(w){
+            if(!arguments.length){ return _width; }
+            _width = w;
+            return _obj;
+        };
+        
+        _obj.labelHeight = function(h){
+            if(!arguments.length){ return _labelHeight; }
+            _labelHeight = h;
+            return _obj;
+        };
+
+        return _obj;
+    };
+    
+    /**
+    #### drawCompositeLabels
+    Creates the labels for information about the PixelLayer if it is a composite
+    of multiple data sets.
+    **/
+    function drawCompositeLabels(){
+        var width = _chart.width() + (2 * _chart.borderWidth());
+        var borderWidth = _chart.borderWidth();
+        
+        var cLabels = _outerG.append('svg:g')
+            .classed('pl-composite-labels', true)
+            .attr('transform', "translate(" + (0 - borderWidth) + "," + (borderWidth - 20) + ")");
+            
+        var opLabel = cLabels.append('svg:g')
+            .classed('operator', true)
+            .classed('hidden', true)
+            .on('click', function(){
                 _chart.operator(_chart.operator() == "AND" ? "OR" : "AND");
-                _chart.render();
-            });
-        // ENTER + UPDATE
-        opLabel.each(function(d,i){
-            var g = d3.select(this);
-            g.select('rect')
-                .style('fill', labelColor)
-            g.select('text')
-                .text(d);
-        });
-        // EXIT
-        opLabel.exit().remove();
-        
-        // LAYER COUNT LABEL
-        var countLabel = _labelG.selectAll('g.pl-count').data(countData);
-        countLabel.enter().append('g')
-            .classed('pl-count', true)
-            .attr('transform', function(d,i){
-                return "translate(" + (width - 19) + ", -20)";
+                _chart.redraw();
             })
-            .each(function(d,i){
-                var g = d3.select(this);
-                g.append('rect')
-                    .attr('width', 20 + borderWidth)
-                    .attr('height', 20);
-                g.append('text')
-                    .classed('no-selection', true)
-                    .attr('text-anchor', "middle")
-                    .attr('x', (20 - borderWidth) / 2)
-                    .attr('y', 15);
-            });
-        countLabel.each(function(d,i){
-            var g = d3.select(this);
-            g.select('rect')
-                .style('fill', labelColor)
-            g.select('text')
-                .text(d);
-        });
-        // EXIT
-        countLabel.exit().remove();
-        
-        // X LABEL
-        var xLabel = _labelG.selectAll('g.pl-x').data(countData);
-        xLabel.enter().append('g')
-            .classed('pl-x', true)
-            .attr('transform', function(d,i){
-                return "translate(" + width + ", 0)";
-            })
-            .each(function(d,i){
-                var g = d3.select(this);
-                g.append('rect')
-                    .attr('width', 20 + borderWidth)
-                    .attr('height', 20);
-                g.append('text')
-                    .classed('no-selection', true)
-                    .attr('text-anchor', "middle")
-                    .attr('x', (20 - borderWidth) / 2)
-                    .attr('y', 15);
-            });
-        xLabel.each(function(d,i){
-            var g = d3.select(this);
-            g.select('rect')
-                .style('fill', labelColor)
-            g.select('text')
-                .text('X');
-        });
-        // EXIT
-        xLabel.exit().remove();
+        opLabel.append('svg:rect')
+            .classed('operator', true)
+            .attr('width', 40)
+            .attr('height', 20);
+        opLabel.append('svg:text')
+            .classed('operator', true)
+            .attr('text-anchor', "middle")
+            .attr('x', 20)
+            .attr('y', 15);
+            
+        var countLabel = cLabels.append('svg:g')
+            .classed('count', true)
+            .classed('hidden', true)
+            .attr('transform', "translate(" + (width - 20) + ",0)");
+        countLabel.append('svg:rect')
+            .classed('count', true)
+            .attr('width', 20)
+            .attr('height', 20);
+        countLabel.append('svg:text')
+            .classed('count', true)
+            .attr('text-anchor', "middle")
+            .attr('x', 10)
+            .attr('y', 15);
+            
+        var xLabel = cLabels.append('svg:g')
+            .classed('x', true)
+            .classed('hidden', true)
+            .attr('transform', "translate(" + (width - borderWidth) + "," + 20 + ")");
+        xLabel.append('svg:rect')
+            .classed('x', true)
+            .attr('width', 20)
+            .attr('height', 20);
+        xLabel.append('svg:text')
+            .classed('x', true)
+            .attr('text-anchor', "middle")
+            .attr('x', 10)
+            .attr('y', 15)
+            .text('X');
     }
     
-    function drawPixels(){
-        var elements = _chart.elements();
-        var width = _chart.width();
-        var height = _chart.height();
-        var rows = _chart.rows();
-        var columns = _chart.columns();
-        var pixelGap = _chart.pixelGap();
-        var pixelColor = _chart.pixelColor();
-        var pixelY = BandScale().domain(d3.range(rows))
-            .rangeBands([0, height], pixelGap, 4);
-        var pixelX = BandScale().domain(d3.range(columns))
-            .rangeBands([0, width], pixelGap, 4);
+    /**
+    #### updateCompositeLabels
+    Updates the labels found at the top of the PixelLayer if it is a composite.
+    **/
+    function updateCompositeLabels(){
+        var operator = _chart.expression().root().operator();
+        var count = _chart.expression().count();
+        var color = _chart.labelColor();
+        
+        var opLabel = _outerG.select('g.operator')
+            .classed('hidden', function(){ return count <= 1; });
+        opLabel.select('rect')
+            .attr('fill', function(d,i){ return color.call(_chart,d,i); });
+        opLabel.select('text')
+            .text(operator);
             
-        // JOIN
-        var pixels = _innerG.selectAll('rect.pl-pixel').data(elements);
-        
-        // ENTER
-        // Create any new pixels
-        pixels.enter().append('rect')
-            .classed('pl-pixel', true)
-            .on('mouseover', function(d, i){
-                if(_dragging){ return; }
-                callListeners('pixelMouseover', this, d, i);
-            })
-            .on('mouseout', function(d, i){
-                if(_dragging){ return; }
-                callListeners('pixelMouseout', this, d, i);
-            })
-            .on('click', function(d, i){
-                if(_dragging){ return; }
-                callListeners('pixelClick', this, d, i);
-            });
-        
-        // ENTER + UPDATE
-        // The selection now includes both new and updated elements
-        pixels
-            .attr('width', pixelX.rangeBand())
-            .attr('height', pixelY.rangeBand())
-            .attr('transform', function(d,i){
-                var row = parseInt(i / rows);
-                var col = i - row * rows;
-                return "translate(" + pixelX(col) + "," + pixelY(row) + ")";
-            })
-            .each(function(d,i){
-                var pixel = d3.select(this);
-                var value = _chart.pixelValue(d.name);
-                var color = pixelColor(d,i);
-                var fill = d3.interpolateRgb(d3.rgb(0,0,0), color)(value);
+        var opLabel = _outerG.select('g.count')
+            .classed('hidden', function(){ return count <= 1; });
+        opLabel.select('rect')
+            .attr('fill', function(d,i){ return color.call(_chart,d,i); });
+        opLabel.select('text')
+            .text(count);
             
-                pixel.classed('empty', function(){ return value == 0; });
-                pixel.style('fill-opacity', function(){ return value ? 1 : 0 });
-                pixel.style('fill', fill);
-            });
-        
-        // EXIT
-        pixels.exit().remove();
+        var opLabel = _outerG.select('g.x')
+            .classed('hidden', function(){ return count <= 1; });
+        opLabel.select('rect')
+            .attr('fill', function(d,i){ return color.call(_chart,d,i); });
     }
     
     /**
@@ -675,65 +619,49 @@ function PixelLayer(svg){
     }
     
     /**
-    #### applyListeners(event, this, [args])
+    #### applyListeners(event, this, [arg, ...])
     Calls the listeners of an event, except it takes an array of arguments
     instead of positional arguments, like function.apply()
     **/
-    function applyListeners(name, thisObj, args){
+    function applyListeners(evt, thisObj, args){
         for(var i = 0; i < _listeners[evt].length; i++){
             _listeners[evt][i].apply(thisObj, args);
         }
     }
     
-/*********************** PUBLIC METHODS ***************************************/
     /**
     #### .render()
-    Renders the chart from scratch, replacing any existing rendering.
+    Renders the chart from scratch.
     **/
     _chart.render = function(){
-        callListeners('preRender', _chart);
-        render();
-        callListeners('postRender', _chart);
+        reset();
+        drawPixelGroups();
+        drawLabels();
         return _chart;
     };
     
     /**
     #### .redraw()
-    Updates the chart without recreating everything from scratch.
+    Redraws the chart in place.
     **/
     _chart.redraw = function(){
-        redraw();
+        drawPixelGroups();
+        drawLabels();
         return _chart;
     };
     
     /**
-    #### .preview(OperatorNode)
-    Previews a set of data.
+    #### .preview()
+    Redraws the chart pixels, but does not update the labels.
     **/
-    _chart.preview = function(d){
-        if(!arguments.length){ return _preview != null; }
-        _preview = _data;
-        _data = d;
-        preview();
-        return _chart;
-    };
-    
-    /**
-    #### .clearPreview()
-    Clears the preview.
-    **/
-    _chart.clearPreview = function(o){
-        if(_preview){
-            _data = _preview;
-            _preview = null;
-            preview();
-        }
+    _chart.preview = function(){
+        drawPixelGroups();
         return _chart;
     };
     
     /**
     #### .remove()
-    Removes the chart from the parent SVG.
+    Removes the chart from the canvas.
     **/
     _chart.remove = function(){
         if(_g){ _g.remove(); }
@@ -741,7 +669,7 @@ function PixelLayer(svg){
     
     /**
     #### .moveToFront()
-    Moves the chart to the front of the parent SVG
+    Moves the chart to the front of the canvas.
     **/
     _chart.moveToFront = function(){
         if(_g){ _g.moveToFront(); }
@@ -749,128 +677,97 @@ function PixelLayer(svg){
     
     /**
     #### .moveToBack()
-    Moves the chart to the back of the parent SVG
+    Moves the chart to the back of the canvas.
     **/
     _chart.moveToBack = function(){
         if(_g){ _g.moveToBack(); }
     };
     
-    
     /**
-    #### .fadeOut([duration])
-    Fades this chart. Default duration is 500 msec.
+    #### fadeIn(duration[,delay])
+    Fades in this pixel layer
     **/
-    _chart.fadeOut = function(d){
-        var dur = d || 500;
+    _chart.fadeIn = function(dur,del){
+        var dur = dur != undefined ? dur : 500;
+        var del = del != undefined ? del : 0;
         if(_g){
             _g.transition()
                 .duration(dur)
-                .style('opacity', 0.5);
-        }
-    };
-    
-    /**
-    #### .fadeIn([duration])
-    Fades in this chart. Default duratin is 500 msec.
-    **/
-    _chart.fadeIn = function(d){
-        var dur = d || 500;
-        if(_g){
-            _g.transition()
-                .duration(dur)
+                .delay(del)
                 .style('opacity', 1);
+            _faded = false;
         }
     };
     
     /**
-    #### .select([value])
-    Executes a d3.select statement scoped to this chart
+    #### .fadeOut(opacity[,duration][,delay])
+    Fades out this pixel layer
     **/
-    _chart.select = function(v){
-        return _g ? _g.select(v) : null;
+    _chart.fadeOut = function(op,dur,del){
+        var op  = op  != undefined ? op  : 0.5;
+        var dur = dur != undefined ? dur : 500;
+        var del = del != undefined ? del : 0;
+        if(_g){
+            _g.transition()
+                .duration(dur)
+                .delay(del)
+                .style('opacity', op);
+            _faded = true;
+        }
     };
     
     /**
-    #### .selectAll([value])
-    Executes a d3.selectAll statment scoped to this chart
+    #### .faded()
+    Returns true if this chart is faded.
     **/
-    _chart.selectAll = function(v){
-        return _g ? _g.selectAll(v) : null;
+    _chart.faded = function(){
+        return _faded;
     };
-
+    
     /**
     #### .elements([array])
-    Gets or sets the elements (e.g. compounds) to draw in this PixelLayer chart.
-    They will be drawn in left-to-right, top-to-bottom order.
+    Gets or sets the elements represented by pixels. The input should be an
+    array of SetElement objects. They will fill the pixel grid from left to
+    right and top to bottom.
     **/
-    _chart.elements = function(c){
+    _chart.elements = function(e){
         if(!arguments.length){ return _elements; }
-        _elements = c;
+        _elements = e;
         return _chart;
     };
     
     /**
-    #### .data(data, [metadata])
-    Sets the data for this PixelLayer. Any metadata, like name, should be
-    passed in as an object.
+    #### .expression([SetExpression])
+    Gets or sets the SetExpression drawn by this PixelLayer.
     **/
-    _chart.data = function(d,m){
-        if(!arguments.length){ return _data; }
-        _data.clear();
-        _data.addChild(DataNode(d,m));
+    _chart.expression = function(e){
+        if(!arguments.length){ return _expression; }
+        _expression = e;
         return _chart;
     };
     
     /**
-    #### .operator([string])
-    Gets or sets the operator used for layering. Default is "AND"
+    #### .uuid()
+    Returns the universally unique identifier for this PixelLayer. Useful for
+    determining if two objects are equal.
+    **/
+    _chart.uuid = function(){
+        return _uuid;
+    };
+    
+    /**
+    #### .operator([value])
+    Gets or sets the root operator for this PixelLayer.
     **/
     _chart.operator = function(o){
-        if(!arguments.length){ return _data.operator(); }
-        _data.operator(o);
-        return _chart;
-    };
-    
-    /**
-    #### .layerCount()
-    Returns the number of layers in this PixelLayer chart.
-    **/
-    _chart.layerCount = function(){
-        return _data.metadata().length;
-    }
-    
-    /**
-    #### .pixelValue(element)
-    Returns the pixel value for a given element in this PixelLayer. It is a
-    value between [0,1].
-    **/
-    _chart.pixelValue = function(e){
-        return _data.pixelValue(e);
-    };
-
-    /**
-    #### .x([value])
-    Gets or sets the x position of the top-left corner of the chart.
-    **/
-    _chart.x = function(x){
-        if(!arguments.length){ return _x; }
-        _x = x;
-        return _chart;
-    };
-    
-    /**
-    #### .y([value])
-    Gets or sets the y position of the top-left corner of the chart.
-    **/
-    _chart.y = function(y){
-        if(!arguments.length){ return _y; }
-        _y = y;
+        if(!arguments.length){ return _chart.expression().root().operator(); }
+        _chart.expression().root().operator(o);
         return _chart;
     };
     
     /**
     #### .width([value])
-    Gets or sets the width of the chart, not including labels. Default is 184px.
+    Gets or sets the width of the PixelLayer, in pixels.
     **/
     _chart.width = function(w){
         if(!arguments.length){ return _width; }
@@ -880,7 +777,7 @@ function PixelLayer(svg){
     
     /**
     #### .height([value])
-    Gets or sets the height of the chart, not including labels. Default is 184px.
+    Gets or sets the height of the PixelLayer, in pixels.
     **/
     _chart.height = function(h){
         if(!arguments.length){ return _height; }
@@ -889,24 +786,25 @@ function PixelLayer(svg){
     };
     
     /**
-    #### .boundingRect()
-    Returns the bounding rectangle for this PixelLayer chart.
+    #### .x([value])
+    Gets or sets the x posiiton of the top left corner of the chart
     **/
-    _chart.boundingRect = function(){
-        var x = _chart.x();
-        var y = _chart.y();
-        var width = _chart.width();
-        var height = _chart.height();
-        return {
-            'top': y,
-            'left': x,
-            'bottom': y + height,
-            'right': x + width,
-            'height': height,
-            'width': width,
-        }
+    _chart.x = function(x){
+        if(!arguments.length){ return _xPos; }
+        _xPos = x;
+        return _chart;
     };
-
+    
+    /**
+    #### .y([value])
+    Gets or sets the y posiiton of the top left corner of the chart
+    **/
+    _chart.y = function(y){
+        if(!arguments.length){ return _yPos; }
+        _yPos = y;
+        return _chart;
+    };
+    
     /**
     #### .rows([value])
     Gets or sets the number of rows in the chart. Default is 15.
@@ -928,51 +826,12 @@ function PixelLayer(svg){
     };
     
     /**
-    #### .pixelGap([value])
-    Gets or sets the width of the gap between pixels in the pixel layer. Default
-    is 2px.
+    #### .borderWidth([value])
+    Gets or sets the border thickness. Default is 0.5px
     **/
-    _chart.pixelGap = function(v){
-        if(!arguments.length){ return _pixelGap; }
-        _pixelGap = v;
-        return _chart;
-    };
-    
-    /**
-    #### .pixelColor([function])
-    Gets or sets function used to color pixels in the PixelLayer. The function
-    will be passed the data and index of the pixel, i.e., compound, being
-    colored and should return a color - either a d3.color object, like d3.rgb(),
-    or a hex string.
-    **/
-    _chart.pixelColor = function(f){
-        if(!arguments.length){ return _pixelColor; }
-        _pixelColor = f;
-        return _chart;
-    };
-    
-    /**
-    #### .labelColor([function])
-    Gets or sets the function used to color the labels of the PixelLayer. The
-    function will be passed the label metadata and index and should return a
-    color - either a d3.color object, like d3.rgb(), or a hex string.
-    **/
-    _chart.labelColor = function(f){
-        if(!arguments.length){ return _labelColor; }
-        _labelColor = f;
-        return _chart;
-    };
-    
-    /**
-    #### .labelText([function])
-    Gets or sets the function used to get the value for a label in the 
-    PixelLayer. The function will be passed the label metadata and index and
-    should return the text to use. The default function returns the 'name'
-    property of the metadata object.
-    **/
-    _chart.labelText = function(f){
-        if(!arguments.length){ return _labelText; }
-        _labelText = f;
+    _chart.borderWidth = function(w){
+        if(!arguments.length){ return _borderWidth; }
+        _borderWidth = w;
         return _chart;
     };
     
@@ -988,13 +847,114 @@ function PixelLayer(svg){
     };
     
     /**
-    #### .borderWidth([value])
-    Gets or sets the border thickness.
+    #### .groupWidth([value])
+    Gets or sets the group outline thickness. Default is 1px.
     **/
-    _chart.borderWidth = function(v){
-        if(!arguments.length){ return _borderWidth; }
-        _borderWidth = v;
+    _chart.groupWidth = function(w){
+        if(!arguments.length){ return _groupWidth; }
+        _groupWidth = w;
         return _chart;
+    };
+    
+    /**
+    #### .groupColor([color])
+    Gets or sets the group outline color. It can be a d3.color object or a hex 
+    string
+    **/
+    _chart.groupColor = function(c){
+        if(!arguments.length){ return _groupColor; }
+        _groupColor = c;
+        return _chart;
+    };
+    
+    /**
+    #### .pixelGap([value])
+    Gets or sets the width of the gap between pixels in the pixel layer. Default
+    is 3px.
+    **/
+    _chart.pixelGap = function(v){
+        if(!arguments.length){ return _pixelGap; }
+        _pixelGap = v;
+        return _chart;
+    };
+    
+    /**
+    #### .pixelColor([function])
+    Gets or sets function used to color pixels in the PixelLayer. The function
+    will be passed the data and index of the pixel, i.e., compound, being
+    colored and should return a color - either a d3.color object, like d3.rgb(),
+    or a hex string. The context (i.e. 'this') is set to be this PixelLayer.
+    **/
+    _chart.pixelColor = function(f){
+        if(!arguments.length){ return _pixelColor; }
+        _pixelColor = f;
+        return _chart;
+    };
+    
+    /**
+    #### .labelColor([function])
+    Gets or sets the function used to color the labels of the PixelLayer. The
+    function will be passed the label object and index and should return a
+    color - either a d3.color object, like d3.rgb(), or a hex string. Like
+    .pixelColor(), the context of the function is set to be this PixelLayer
+    object.
+    **/
+    _chart.labelColor = function(f){
+        if(!arguments.length){ return _labelColor; }
+        _labelColor = f;
+        return _chart;
+    };
+    
+    /**
+    #### .valueAccessor = function([function])
+    Gets or sets the function used to examine an element's value. The default
+    accessor looks for a .value property on the element.
+    **/
+    _chart.valueAccessor = function(f){
+        if(!arguments.length){ return _valueAccessor; }
+        _valueAccessor = f;
+        return _chart;
+    };
+    
+    /**
+    #### .groupAccessor = function([function])
+    Gets or sets the function used to examine an element's group or hierarchy.
+    For example, the AquaViz data set has elements such as Trigonelline, with
+    a class of Amino Acid. The default accessor looks for a .class property.
+    **/
+    _chart.groupAccessor = function(f){
+        if(!arguments.length){ return _groupAccessor; }
+        _groupAccessor = f;
+        return _chart;
+    };
+    
+    /**
+    #### .composite
+    Returns true if this chart is a composite, meaning it has more than one
+    data set.
+    **/
+    _chart.composite = function(){
+        return _chart.expression().count() > 1;
+    };
+    
+    /**
+    #### .boundingRect
+    Returns the bounding rectangle for this PixelLayer, relative to the parent
+    container.
+    **/
+    _chart.boundingRect = function(){
+        var x = _chart.x();
+        var y = _chart.y();
+        var width = _chart.width();
+        var height = _chart.height();
+        return {
+            'top': y,
+            'left': x,
+            'bottom': y + height,
+            'right': x + width,
+            'height': height,
+            'width': width,
+        };
     };
     
     /**
@@ -1005,6 +965,6 @@ function PixelLayer(svg){
         _listeners[e].push(_);
         return _chart;
     };
-
+    
     return _chart;
 }
