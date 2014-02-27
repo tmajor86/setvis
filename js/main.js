@@ -1,8 +1,9 @@
 /*******************************************************************************
 main.js
 *******************************************************************************/
-// TODO Increment pixel layer placement on creation
 // TODO Refine mask for bands (currently just a rectangle over the pixel area)?
+// TODO Zooming
+// TODO Calculate similarities up front (w/ loading screen?)
 
 $(document).ready(function(){
     // Global functions used to customize PixelLayer display and behavior
@@ -676,6 +677,10 @@ $(document).ready(function(){
                 .style('stroke-width', function(d){ return bandScale(d.similarity); })
                 .style('stroke', function(d){ return bandColor(d); })
                 .style('fill', "none")
+                .each(function(d){
+                    // Bring the non-faded bands to the front
+                    if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
+                });
             
             // EXIT
             bands.exit().remove();
@@ -701,7 +706,7 @@ $(document).ready(function(){
                 .attr('x', function(p){ return p.x(); })
                 .attr('y', function(p){ return p.y(); })
                 .attr('width', function(p){ return p.width(); })
-                .attr('height', function(p){ return p.height(); })
+                .attr('height', function(p){ return p.height() + 20; })
                 .attr('fill', "black");
             
             masks.exit().remove();
@@ -732,11 +737,16 @@ $(document).ready(function(){
         Creates a new pixellayer object from the given set expression.
         **/
         function createPixelLayer(expression){
+            var row = parseInt(_pixelLayers.length / 5);
+            var col = _pixelLayers.length - row * 5;
+            
             var pl = PixelLayer(_canvas + " g.layers")
                 .elements(_data.elements().elements())
                 .expression(expression)
                 .pixelColor(pixelColor)
                 .labelColor(labelColor)
+                .x(col * (184 + 30) + 30)
+                .y(row * (184 + 30) + 60)
                 .on('mousedown', _obj.onMousedown)
                 .on('mouseup', _obj.onMouseup)
                 .on('mouseenter.pixel', _obj.onElementMouseenter)

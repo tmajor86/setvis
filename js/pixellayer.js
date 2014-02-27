@@ -1,7 +1,6 @@
 /*
     TODO Add clipping mask to labels
     TODO Document the events from PixelLayer
-    TODO Zooming
     TODO Hide/Show labels depth > 1 with mouseover
     FIXME Labels w/ depth > 1 don't have gap
 */
@@ -908,7 +907,7 @@ function PixelLayer(anchor){
     };
     
     /**
-    #### .valueAccessor = function([function])
+    #### .valueAccessor([function])
     Gets or sets the function used to examine an element's value. The default
     accessor looks for a .value property on the element.
     **/
@@ -919,7 +918,7 @@ function PixelLayer(anchor){
     };
     
     /**
-    #### .groupAccessor = function([function])
+    #### .groupAccessor([function])
     Gets or sets the function used to examine an element's group or hierarchy.
     For example, the AquaViz data set has elements such as Trigonelline, with
     a class of Amino Acid. The default accessor looks for a .class property.
@@ -931,7 +930,7 @@ function PixelLayer(anchor){
     };
     
     /**
-    #### .composite
+    #### .composite()
     Returns true if this chart is a composite, meaning it has more than one
     data set.
     **/
@@ -940,7 +939,7 @@ function PixelLayer(anchor){
     };
     
     /**
-    #### .boundingRect
+    #### .boundingRect()
     Returns the bounding rectangle for this PixelLayer, relative to the parent
     container.
     **/
@@ -949,6 +948,26 @@ function PixelLayer(anchor){
         var y = _chart.y();
         var width = _chart.width();
         var height = _chart.height();
+        return {
+            'top': y,
+            'left': x,
+            'bottom': y + height,
+            'right': x + width,
+            'height': height,
+            'width': width,
+        };
+    };
+    
+    /**
+    #### .maskingRect()
+    Returns the rectangle to be used for masking, relative to the parent
+    container.
+    **/
+    _chart.maskingRect = function(){
+        var x = _chart.x();
+        var y = _chart.y();
+        var width = _chart.width();
+        var height = _chart.height() + 20;
         return {
             'top': y,
             'left': x,
