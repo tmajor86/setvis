@@ -121,6 +121,7 @@ function PixelLayer(anchor){
         'mouseenter.group': [],
         'mouseleave.group': [],
         'drag.label': [],
+        'change.operator': [],
     };
     
     // The drag behavior
@@ -537,6 +538,7 @@ function PixelLayer(anchor){
             .on('click', function(){
                 _chart.operator(_chart.operator() == "AND" ? "OR" : "AND");
                 _chart.redraw();
+                callListeners('change.operator', _chart, _chart.operator());
             })
         opLabel.append('svg:rect')
             .classed('operator', true)

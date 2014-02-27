@@ -149,10 +149,10 @@ function combinations(arr, m){
 
 
 /**
-#### checkOverlap(bound, bound)
+#### rectOverlap(bound, bound)
 Given two bounding rectangles, returns true if they overlap or intersect.
 **/
-function checkOverlap(a, b){
+function rectOverlap(a, b){
     return (a.left < b.right && a.right > b.left &&
             a.top < b.bottom && a.bottom > b.top);
 }

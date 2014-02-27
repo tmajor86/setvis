@@ -1,6 +1,10 @@
 /*******************************************************************************
 main.js
 *******************************************************************************/
+// TODO Increment pixel layer placement on creation
+// TODO Change drop composition behavior
+// TODO Refine mask for bands (currently just a rectangle over the pixel area)?
+
 $(document).ready(function(){
     // Global functions used to customize PixelLayer display and behavior
     var valueAccessor = function(d){ return d.value; };
@@ -18,6 +22,13 @@ $(document).ready(function(){
         if(isComposite(this)){ return d3.rgb(156,247,71); }
         else{ return d3.rgb(17, 110, 220); }
     };
+    var bandColor     = function(d){
+        var baseColor = d3.rgb(255,255,255);
+        if(d.a.faded() || d.b.faded()){
+            return d3.interpolateRgb(d3.rgb(0,0,0), baseColor)(0.3);
+        }
+        return baseColor;
+    }
     var bandScale     = d3.scale.linear()
         .domain([60,225])
         .range([2,30]);
@@ -248,20 +259,22 @@ $(document).ready(function(){
                 d3.selectAll('rect.pixel').classed('hover', function(d){
                     return valueAccessor(d) === value;
                 });
+                
                 // Fade any pixel layers that do not contain the element
                 _pixelLayers.forEach(function(p){
                     if(!p.faded() && !p.expression().value(element)){ p.fadeOut(0.4); }
                 });
-                // Fade any bands connecting to faded pixel layers
+                
+                // Update the band colorings, fading out if the band is
+                // connected to a faded PixelLayer.
                 d3.selectAll('path.band')
-                .each(function(d){
-                    if(d.a.faded() || d.b.faded()){
-                        d3.select(this)
-                          .transition()
-                            .duration(500)
-                            .style('opacity', 0.3);
-                    }
-                });
+                    .each(function(d){
+                        // Bring the non-faded bands to the front
+                        if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
+                    })
+                  .transition()
+                    .duration(500)
+                    .style('stroke', function(d){ return bandColor(d); });
             }
         };
         
@@ -277,13 +290,11 @@ $(document).ready(function(){
                 if(p.faded()){ p.fadeIn(); }
             });
             
+            // Update the band colorings, fading in if applicable
             d3.selectAll('path.band')
-            .each(function(d){
-                d3.select(this)
-                  .transition()
-                    .duration(500)
-                    .style('opacity', 1);
-            });
+              .transition()
+                .duration(500)
+                .style('stroke', function(d){ return bandColor(d); });
         };
         
         /**
@@ -347,7 +358,7 @@ $(document).ready(function(){
             for(var i = 0; i < _pixelLayers.length; i++){
                 var p = _pixelLayers[i];
                 if(p.uuid() === uuid){ continue; }
-                if(checkOverlap(bounds, p.boundingRect())){ 
+                if(rectOverlap(bounds, p.boundingRect())){ 
                     overlap = p; 
                     break;
                 }
@@ -378,7 +389,7 @@ $(document).ready(function(){
         when the state changes.
         **/
         function checkTrashOverlap(pl){
-            var overlap = checkOverlap(pl.boundingRect(), _trashBounds);
+            var overlap = rectOverlap(pl.boundingRect(), _trashBounds);
             if(!_trashOverlap && overlap){
                 _trashOverlap = true;
                 _obj.onTrashOverlapEnter(pl);
@@ -475,11 +486,7 @@ $(document).ready(function(){
             removeLayer(a);
             
             // Update the similarity bands
-            _similarityBands = createBands();
-            drawBands();
-            
-            // Set the masks
-            setMasks();
+            updateBands();
         };
         
         /**
@@ -511,12 +518,7 @@ $(document).ready(function(){
             _overlap = null;
             
             removeLayer(p);
-            // Update the similarity bands
-            _similarityBands = createBands();
-            drawBands();
-            
-            // Set the masks
-            setMasks();
+            updateBands();
         };
         
         /**
@@ -554,7 +556,7 @@ $(document).ready(function(){
         #### .onLabelDrag(label)
         Called when a label belonging to a PixelLayer is dragged.
         **/
-        _obj.labelDrag = function(l){
+        _obj.onLabelDrag = function(l){
             // We only split when a label with depth 0 is dragged
             if(!isComposite(this) || l.depth > 0){ return; }
             
@@ -584,11 +586,15 @@ $(document).ready(function(){
             this.expression(newExpr).redraw();
             
             // Update the similarity bands
-            _similarityBands = createBands();
-            drawBands();
-            
-            // Set the masks
-            setMasks();
+            updateBands();
+        };
+        
+        /**
+        #### .onOperatorChange(PixelLayer)
+        Called when the operator of a pixel layer changes
+        **/
+        _obj.onOperatorChange = function(d){
+            updateBands();
         };
         
         /**
@@ -619,11 +625,21 @@ $(document).ready(function(){
             // Completely outside the rectangle
             if (u1 > u2){ return null; }
             
-            // Return the clipping point
+            // Return the clipping point of the line where it passes from inside
+            // of the rectangle to the outside
             return {
-                x: p1.x + (p[1] * u1), 
-                y: p1.y + (p[3] * u1),
+                x: p1.x + (p[1] * u2), 
+                y: p1.y + (p[3] * u2),
             };
+        }
+        
+        /** updateBands()
+        Helper function that updates the similarity bands on the page
+        **/
+        function updateBands(){
+            _similarityBands = createBands();
+            drawBands();
+            setMasks();
         }
         
         /**
@@ -658,8 +674,8 @@ $(document).ready(function(){
             bands
                 .attr('d', path)
                 .style('stroke-width', function(d){ return bandScale(d.similarity); })
-                .style('stroke', "white")
-                .style('fill', "none");
+                .style('stroke', function(d){ return bandColor(d); })
+                .style('fill', "none")
             
             // EXIT
             bands.exit().remove();
@@ -670,35 +686,18 @@ $(document).ready(function(){
         Sets the masks for masking the bands to the PixelLayers
         **/
         function setMasks(){
-            return;
-            
-            var defs = d3.select(_canvas).select('defs');
-            var masks = defs.selectAll('mask')
+            var maskG = d3.select(_canvas).select('g.masks');
+            var masks = maskG.selectAll('rect.mask')
                 .data(_pixelLayers, function(p){ return p.uuid(); });
                 
             // ENTER
-            var newMasks = masks.enter()
-              .append('svg:mask')
-                .attr('id', function(p){ return "mask-" + p.uuid(); });
-                
-            newMasks.append('svg:rect')
-                .classed('mask-bg', true)
-                .attr('x', 0)
-                .attr('y', 0)
-                .attr('width', "100%")
-                .attr('height', "100%")
-                .attr('fill', "white")
-                
-            newMasks.append('svg:rect')
+            masks.enter()
+              .append('svg:rect')
+                .attr('id', function(p){ return "mask-" + p.uuid(); })
                 .classed('mask', true);
               
             // UPDATE + ENTER
             masks
-                .attr('x', function(p){ return p.x(); })
-                .attr('y', function(p){ return p.y(); })
-                .attr('width', function(p){ return p.width(); })
-                .attr('height', function(p){ return p.height(); })
-            masks.selectAll('rect.mask')
                 .attr('x', function(p){ return p.x(); })
                 .attr('y', function(p){ return p.y(); })
                 .attr('width', function(p){ return p.width(); })
@@ -747,7 +746,8 @@ $(document).ready(function(){
                 .on('dragstart', _obj.onDragstart)
                 .on('drag', _obj.onDrag)
                 .on('dragend', _obj.onDragend)
-                .on('drag.label', _obj.labelDrag);
+                .on('drag.label', _obj.onLabelDrag)
+                .on('change.operator', _obj.onOperatorChange);
             _pixelLayers.unshift(pl);
             return pl;
         }
@@ -763,14 +763,11 @@ $(document).ready(function(){
             var expression = SetExpression(operator);
             operator.addChild(node);
             
+            // Create and render the pixel layer
             createPixelLayer(expression).render();
             
             // Update the similarity bands
-            _similarityBands = createBands();
-            drawBands();
-            
-            // Set the masks
-            setMasks();
+            updateBands();
         };
         
         /**
@@ -784,13 +781,13 @@ $(document).ready(function(){
             _trashBounds = getTrashBounds();
             d3.select(_trash).classed('hidden', true);
             
-            // Create the definition container for masks
-            d3.select(_canvas).append('svg:defs')
-                .classed('defs', true);
-            
             // Create the groups for the bands and the pixelLayers
-            d3.select(_canvas).append('svg:g')
+            var bandG = d3.select(_canvas).append('svg:g');
+            bandG.append('svg:g')
                 .classed('bands', true);
+            bandG.append('svg:g')
+                .classed('masks', true);
+            
             d3.select(_canvas).append('svg:g')
                 .classed('layers', true);
             
