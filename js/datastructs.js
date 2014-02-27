@@ -361,24 +361,54 @@ function SetExpression(root){
     };
     
     /**
-    #### .merge(expression)
-    Merges another SetExpression with this one.
+    #### .merge(expression, flatten)
+    Merges another SetExpression with this one. If "flatten" is specified, the
+    expression is flattened, if possible, when a composite
     **/
-    _obj.merge = function(e){
-        // Simplify the expression if possible
-        // X && (Y && Z) = X && Y && Z
-        // X || (Y || Z) = X || Y || Z
-        var otherRoot = e.root()
-        if(otherRoot.children().length == 1 || otherRoot.operator() === _root.operator()){
-            e.root().children().forEach(function(n){
-                _root.addChild(n);
-            });
+    _obj.merge = function(e, flatten){
+        var otherRoot = e.root();
+        var composite = e.count() > 1;
+        
+        if(composite){
+            // The other expression is a composite expression. Create a new
+            // level in the expression tree.
+            var newRoot = OperatorNode('AND');
+            newRoot.addChild(_root);
+            newRoot.addChild(otherRoot);
+            _root = newRoot;
+            _obj.flatten();
         }
         else{
-            _root.addChild(e.root());
+            // The other expression is a single set.
+            _root.addChild(otherRoot.children()[0]);
         }
         return _obj;
     };
+    
+    /**
+    #### .flatten()
+    Flattens this expression by moving any single layers up the tree.
+    **/
+    _obj.flatten = function(){
+        var rChildren = _root.children();
+        var nChildren = [];
+        
+        if(rChildren.length == 1 && isOperatorNode(rChildren[0])){
+            _root = rChildren[0];
+            return;
+        }
+        rChildren.forEach(function(n){
+            if(isOperatorNode(n) && n.children().length == 1){
+                var child = n.children()[0];
+                n.removeChild(child);
+                nChildren.push(child);
+                return;
+            }
+            nChildren.push(n);
+        });
+        _root.clear();
+        nChildren.forEach(function(n){ _root.addChild(n); });
+    }
     
     /**
     #### .preview(expression)

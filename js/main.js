@@ -2,7 +2,6 @@
 main.js
 *******************************************************************************/
 // TODO Increment pixel layer placement on creation
-// TODO Change drop composition behavior
 // TODO Refine mask for bands (currently just a rectangle over the pixel area)?
 
 $(document).ready(function(){
@@ -33,7 +32,6 @@ $(document).ready(function(){
         .domain([60,225])
         .range([2,30]);
     
-    
     /**
     #### isComposite(PixelLayer)
     Returns true if this PixelLayer contains more than one data set
@@ -41,7 +39,6 @@ $(document).ready(function(){
     function isComposite(p){
         return p.expression().count() > 1;
     }
-    
     
     /**
     ## ListController(elementBtn, elementList, caseBtn, caseList, dataSource)
@@ -481,7 +478,7 @@ $(document).ready(function(){
             _obj.onLayerOverlapLeave(a,b);
             
             // Merge the layers to create a "composite" layer
-            b.expression().merge(a.expression());
+            b.expression().merge(a.expression(), false);
             b.redraw();
             removeLayer(a);
             
@@ -573,7 +570,10 @@ $(document).ready(function(){
             }
             
             l.parent.removeChild(node);
+            
+            // Flatten the remaining expression.
             var oldExpr = this.expression();
+            oldExpr.flatten();
             
             // Create a new PixelLayer in the position of this one.
             createPixelLayer(oldExpr)
