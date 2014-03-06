@@ -1,4 +1,6 @@
 // TODO Add some caching of calculated values, similarities, etc.
+// TODO Implement intersection() and union()
+// FIXME Fix bug(s) w/ arguments of Set constructor
 
 /**
 ## SetDataSource
@@ -121,6 +123,30 @@ function Set(data, hash){
         var count = 0;
         _obj.forEach(function(){ count++; })
         return count;
+    };
+    
+    /**
+    #### .intersection(Set)
+    Produces the intersection of two sets. Returns a new Set object.
+    **/
+    _obj.intersection = function(other){
+        var set = Set({}, _hash);
+        other.forEach(function(e){
+            if(_obj.has(e)){ set.add(e); }
+        });
+        return set;
+    };
+    
+    /**
+    #### .union(Set)
+    Produces the union of two sets. Returns a new Set object.
+    **/
+    _obj.union = function(other){
+        var set = Set(_data, _hash);
+        other.forEach(function(e){
+            set.add(e);
+        })
+        return set;
     };
     
     /**
@@ -362,10 +388,9 @@ function SetExpression(root){
     
     /**
     #### .merge(expression, flatten)
-    Merges another SetExpression with this one. If "flatten" is specified, the
-    expression is flattened, if possible, when a composite
+    Merges another SetExpression with this one.
     **/
-    _obj.merge = function(e, flatten){
+    _obj.merge = function(e){
         var otherRoot = e.root();
         var composite = e.count() > 1;
         
@@ -424,7 +449,7 @@ function SetExpression(root){
         newExpr.merge(e);
         return newExpr;
     };
-
+    
     /**
     #### .accept(visitor)
     Implements the visitor pattern to allow various operations on this expression.

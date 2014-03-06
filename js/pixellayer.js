@@ -631,6 +631,22 @@ function PixelLayer(anchor){
     }
     
     /**
+    #### .select(selection)
+    Executes a d3.select() within the context of this PixelLayer.
+    **/
+    _chart.select = function(s){
+        return _g.select(s);
+    };
+    
+    /**
+    #### .selectAll(selection)
+    Executes a d3.selectAll() within the context of this PixelLayer.
+    **/
+    _chart.selectAll = function(s){
+        return _g.selectAll(s);
+    };
+    
+    /**
     #### .render()
     Renders the chart from scratch.
     **/
@@ -746,6 +762,23 @@ function PixelLayer(anchor){
         _expression = e;
         return _chart;
     };
+    
+    /**
+    #### .asSet()
+    Returns the elements of the calculated expression as a set, i.e., the
+    elements that are being drawn on the screen will be returned as a set. If
+    an element has a pixel value greater than 0, it is considered to be in the 
+    set.
+    **/
+    _chart.asSet = function(){
+        var elements = _chart.elements();
+        var expression = _chart.expression();
+        var set = Set({}, _chart.valueAccessor());
+        elements.forEach(function(e){
+            if(expression.value(e) > 0){ set.add(e); }
+        });
+        return set;
+    }
     
     /**
     #### .uuid()
@@ -948,26 +981,6 @@ function PixelLayer(anchor){
         var y = _chart.y();
         var width = _chart.width();
         var height = _chart.height();
-        return {
-            'top': y,
-            'left': x,
-            'bottom': y + height,
-            'right': x + width,
-            'height': height,
-            'width': width,
-        };
-    };
-    
-    /**
-    #### .maskingRect()
-    Returns the rectangle to be used for masking, relative to the parent
-    container.
-    **/
-    _chart.maskingRect = function(){
-        var x = _chart.x();
-        var y = _chart.y();
-        var width = _chart.width();
-        var height = _chart.height() + 20;
         return {
             'top': y,
             'left': x,

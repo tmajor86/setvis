@@ -345,7 +345,8 @@ psuedo-selector trick */
     cursor: default;
 }
 
-#samples-filters {
+#samples-filters,
+#samples-footer {
     background-color: #9c9c9c;
 }
 
@@ -386,6 +387,22 @@ psuedo-selector trick */
     left: 18.5px;
 }
 
+#samples-footer button {
+    float: right;
+    width: 80px;
+    height: 30px;
+    margin: 4px 3px 4px 3px;
+}
+
+#sample-count {
+    width: 80px;
+    margin: 0px 4px 0px 4px;
+    line-height: 40px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: .75em;
+}
+
 #samples .list li {
     padding: 3px 4px 5px 4px;
 }
@@ -408,7 +425,8 @@ psuedo-selector trick */
     visibility: hidden;
 }
 
-#samples .list li button:hover{
+#samples .list li button:hover,
+#samples-footer #add-all-btn:hover{
     background: rgb(167,199,220); /* Old browsers */
     background: -moz-linear-gradient(top,  rgba(167,199,220,1) 0%, rgba(133,178,211,1) 100%); /* FF3.6+ */
     background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(167,199,220,1)), color-stop(100%,rgba(133,178,211,1))); /* Chrome,Safari4+ */
@@ -420,7 +438,8 @@ psuedo-selector trick */
     border: 1px solid #7d7d7d;
 }
 
-#samples .list li button:active {
+#samples .list li button:active,
+#samples-footer #add-all-btn:active {
     background: rgb(119,160,189); /* Old browsers */
     background: -moz-linear-gradient(top,  rgba(119,160,189,1) 0%, rgba(146,179,202,1) 100%); /* FF3.6+ */
     background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(119,160,189,1)), color-stop(100%,rgba(146,179,202,1))); /* Chrome,Safari4+ */
@@ -452,10 +471,20 @@ psuedo-selector trick */
     width: 80px;
     height: 40px;
     margin: 0 10px;
+    margin-bottom: 10px;
 }
 
-#samples-btn {
-    margin-bottom: 10px !important;
+#list-btns label {
+    font-size: .8em;
+    color: white;
+}
+
+#bands label {
+    margin-left: 10px;
+}
+
+#bands-cb {
+    margin-left: 8px;
 }
 
 #canvas {
@@ -477,6 +506,10 @@ psuedo-selector trick */
 
 rect.pixel.hover{
     fill: rgb(255,255,255) !important;
+}
+
+path.band.hover{
+/*    stroke: rgb(255,255,255) !important;*/
 }
 
 

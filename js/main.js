@@ -4,6 +4,8 @@ main.js
 // TODO Refine mask for bands (currently just a rectangle over the pixel area)?
 // TODO Zooming
 // TODO Calculate similarities up front (w/ loading screen?)
+// TODO Filter based on similarity?
+// TODO Hook up sample count
 
 $(document).ready(function(){
     // Global functions used to customize PixelLayer display and behavior
@@ -23,7 +25,7 @@ $(document).ready(function(){
         else{ return d3.rgb(17, 110, 220); }
     };
     var bandColor     = function(d){
-        var baseColor = d3.rgb(255,255,255);
+        var baseColor = d3.rgb(200,200,200);
         if(d.a.faded() || d.b.faded()){
             return d3.interpolateRgb(d3.rgb(0,0,0), baseColor)(0.3);
         }
@@ -42,15 +44,18 @@ $(document).ready(function(){
     }
     
     /**
-    ## ListController(elementBtn, elementList, caseBtn, caseList, dataSource)
+    ## ListController(element, dataSource)
     The controller for the lists on the page. Populates the lists from the data
     source.
     **/
-    var ListController = function(eb, el, cb, cl, ds){
-        var _elementBtn  = d3.select(eb);
-        var _elementList = d3.select(el);
-        var _caseBtn     = d3.select(cb);
-        var _caseList    = d3.select(cl);
+    var ListController = function(el, ds){
+        var _controls    = d3.select(el);
+        var _elementBtn  = _controls.select('#elements-btn');
+        var _elementList = _controls.select('#elements');
+        var _caseBtn     = _controls.select('#samples-btn');
+        var _caseList    = _controls.select('#samples');
+        var _caseCount   = _controls.select('#sample-count');
+        var _addAllBtn   = _controls.select('#add-all-btn');
         var _caseListObj = null;
         var _dataSource  = ds;
         var _obj         = {};
@@ -65,6 +70,8 @@ $(document).ready(function(){
             'add.case': [],
             'populated.elements': [],
             'populated.cases': [],
+            'searched.elements': [],
+            'searched.cases': [],
         };
 
         /**
@@ -115,6 +122,11 @@ $(document).ready(function(){
             elementList = new List('elements', options);
             elementList.sort('name');
             callListeners('populated.elements', _obj, elementList);
+            
+            elementList.on('searchStart', function(){
+                var matching = elementList.matchingItems;
+                callListeners('searched.elements', _obj, matching);
+            });
         };
         
         /**
@@ -150,7 +162,7 @@ $(document).ready(function(){
                 .attr('title', "Add")
                 .html("+")
                 .on('click', function(d){ callListeners('add.case', _obj, d); });
-           
+            
             
             // It appears that list.js is storing some things when a List
             // object is created, preventing things from working correctly if
@@ -168,6 +180,17 @@ $(document).ready(function(){
                         d3.selectAll('#samples .list li').remove();
                         populateCases(cases);
                     });
+                    
+                var matching = _caseListObj.matchingItems;
+                var str = matching.length + " sample" + (matching.length == 1 ? "" : "s");
+                _caseCount.text(str);
+                
+                _caseListObj.on('searchComplete', function(){
+                    var matching = _caseListObj.matchingItems;
+                    var str = matching.length + " sample" + (matching.length == 1 ? "" : "s");
+                    _caseCount.text(str);
+                    callListeners('searched.cases', _obj, matching);
+                });
             }
         }
         
@@ -193,6 +216,13 @@ $(document).ready(function(){
                     return !d3.select(this).classed('hidden');
                 });
             });
+            _addAllBtn.on('click', function(){
+                _caseList.select('.list').selectAll('li')
+                    .each(function(d){
+                        callListeners('add.case', _obj, d);
+                    });
+            });
+            
             return _obj;
         };
         
@@ -265,14 +295,7 @@ $(document).ready(function(){
                 
                 // Update the band colorings, fading out if the band is
                 // connected to a faded PixelLayer.
-                d3.selectAll('path.band')
-                    .each(function(d){
-                        // Bring the non-faded bands to the front
-                        if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
-                    })
-                  .transition()
-                    .duration(500)
-                    .style('stroke', function(d){ return bandColor(d); });
+                fadeBands();
             }
         };
         
@@ -289,10 +312,7 @@ $(document).ready(function(){
             });
             
             // Update the band colorings, fading in if applicable
-            d3.selectAll('path.band')
-              .transition()
-                .duration(500)
-                .style('stroke', function(d){ return bandColor(d); });
+            fadeBands();
         };
         
         /**
@@ -634,13 +654,99 @@ $(document).ready(function(){
             };
         }
         
-        /** updateBands()
+        /**
+        #### toggleBands([boolean])
+        Shows/hides the similarity bands. Default behavior is to toggle the
+        current state. A boolean can be passed in to force a state.
+        **/
+        _obj.toggleBands = function(b){
+            var bands = d3.select(_canvas).select('g.bands');
+            var hide  = b == undefined ? !bands.classed('hidden') : !b;
+            bands.classed('hidden', hide);
+            return _obj;
+        };
+        
+        /**
+        #### .onBandMouseenter()
+        Called when the mouse enters a similarity band.
+        **/
+        _obj.onBandMouseenter = function(d){
+            d3.select(this).classed('hover', true);
+            _pixelLayers.forEach(function(p){
+                var uuid = p.uuid();
+                if(uuid === d.a.uuid() || uuid === d.b.uuid()){ return; }
+                p.fadeOut();
+            });
+            fadeBands();
+            
+            // Find the common elements (intersection) and highlight them
+            var setA = d.a.asSet();
+            var setB = d.b.asSet();
+            var common = setA.intersection(setB);
+            d.a.selectAll('rect.pixel')
+                .classed('hover', function(d){ return common.has(d); });
+            d.b.selectAll('rect.pixel')
+                .classed('hover', function(d){ return common.has(d); });
+        };
+        
+        /**
+        #### .onBandMouseleave()
+        Called when the mouse leaves a similarity band.
+        **/
+        _obj.onBandMouseleave = function(d){
+            d3.select(this).classed('hover', false);
+            _pixelLayers.forEach(function(p){
+                p.fadeIn();
+            });
+            fadeBands();
+            
+            d.a.selectAll('rect.pixel')
+                .classed('hover', false);
+            d.b.selectAll('rect.pixel')
+                .classed('hover', false);
+        };
+        
+        /**
+        #### .onBandClick()
+        Called when a similarity band is pressed
+        **/
+        _obj.onBandClick = function(d){
+            var a = d.a;
+            var b = d.b;
+            
+            // Merge the two ends of the band together
+            _obj.onBandMouseleave.call(this, d);
+            b.expression().merge(a.expression(), false);
+            b.redraw();
+            removeLayer(a);
+            
+            // Update the similarity bands
+            updateBands();
+        };
+        
+        /** 
+        #### updateBands()
         Helper function that updates the similarity bands on the page
         **/
         function updateBands(){
             _similarityBands = createBands();
             drawBands();
             setMasks();
+        }
+        
+        /**
+        #### fadeBands()
+        Fades the similarity bands on the page
+        **/
+        function fadeBands(){
+            d3.selectAll('path.band')
+                .each(function(d){
+                    // Bring the non-faded bands to the front
+                    if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
+                })
+              .transition()
+                .duration(500)
+                .style('stroke', function(d){ return bandColor(d); });
         }
         
         /**
@@ -680,7 +786,10 @@ $(document).ready(function(){
                 .each(function(d){
                     // Bring the non-faded bands to the front
                     if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
-                });
+                })
+                .on('mouseenter', _obj.onBandMouseenter)
+                .on('mouseleave', _obj.onBandMouseleave)
+                .on('click', _obj.onBandClick);
             
             // EXIT
             bands.exit().remove();
@@ -794,12 +903,17 @@ $(document).ready(function(){
             // Create the groups for the bands and the pixelLayers
             var bandG = d3.select(_canvas).append('svg:g');
             bandG.append('svg:g')
-                .classed('bands', true);
+                .classed('bands', true)
+                .classed('hidden', true);
             bandG.append('svg:g')
                 .classed('masks', true);
             
             d3.select(_canvas).append('svg:g')
                 .classed('layers', true);
+            
+            // Hook up the similarity checkbox
+            d3.select('#bands-cb')
+                .on('change', function(d){ _obj.toggleBands(this.checked); });
             
             return _obj;
         };
@@ -815,13 +929,7 @@ $(document).ready(function(){
         var controller = Controller("#canvas", "#trash", this).init();
         
         // Initialize the lists
-        var listController = ListController(
-            '#elements-btn',
-            '#elements',
-            '#samples-btn',
-            '#samples',
-            this
-        )
+        var listController = ListController('#controls', this)
         // Set up cross-controller communication
         .on('add.case', controller.drawPixelLayer)
         .on('mouseenter.element', controller.onElementMouseenter)

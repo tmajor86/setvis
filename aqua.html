@@ -34,7 +34,11 @@
             <div id="controls" class="no-selection">
               <div id="list-btns">
                 <button id="samples-btn" title="Samples">Samples</button>
-                <button id="elements-btn" title="elements">Compounds</button>
+                <button id="elements-btn" title="Compounds">Compounds</button>
+                <div id="bands">
+                    <label for="bands-cb">Similarity</label>
+                    <input type="checkbox" id="bands-cb"></input>
+                </div>
               </div>
               <div id="lists">
                 <div id="samples" class="search-list hidden">
@@ -46,6 +50,10 @@
                   </div>
                   <div class="list-container">
                     <ul class="list"></ul>
+                  </div>
+                  <div id="samples-footer" class="clearfix">
+                    <button id="add-all-btn" title="Add all samples">Add All</button>
+                    <div id="sample-count">5 samples</div>
                   </div>
                 </div>
                 <div id="elements" class="search-list hidden">
