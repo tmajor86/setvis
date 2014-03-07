@@ -423,6 +423,8 @@ function PixelLayer(anchor){
             .classed('label', true);
         newLabels.append('svg:text')
             .classed('count', true);
+        newLabels.append('svg:title')
+            .text(function(d) { return d.label;});
         
         // ENTER + UPDATE
         labels
@@ -432,7 +434,8 @@ function PixelLayer(anchor){
             .attr('height', function(d) { return d.dy; })
             .attr('fill', function(d,i){ return color.call(_chart,d,i); });
         labels.select('text.label')
-            .attr('text-anchor', function(){ 
+            .attr('text-anchor', function(d){ 
+                //Can use 'this.getComputedTextLength()' to check if size of label is less than surrounding box.
                 if(count == 1){ return "start"; }
                 else{ return "middle"; }
             })
@@ -441,6 +444,7 @@ function PixelLayer(anchor){
                 else{ return d.dx / 2; }
             })
             .attr('y', 15)
+            .attr('width', function(d) { return d.dx * 0.8; })
             .text(function(d){ return d.label; });
         labels.select('text.count')
             .attr('text-anchor', "end")
