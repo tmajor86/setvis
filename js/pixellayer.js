@@ -100,6 +100,7 @@ function PixelLayer(anchor){
     var _groupAccessor = function(d,i){ return d.class; }
     
     var _faded = false;
+    var _simple = false;
     
     
     // The event listeners available for this chart
@@ -119,6 +120,7 @@ function PixelLayer(anchor){
         'click.pixel': [],
         'mouseenter.group': [],
         'mouseleave.group': [],
+        'click.split': [],
         'drag.label': [],
         'change.operator': [],
     };
@@ -130,12 +132,15 @@ function PixelLayer(anchor){
     .origin(function(){ return {'x': _chart.x(), 'y': _chart.y()}; })
     .on('dragstart', function(){
         _dragging = true;
+        // Cancel propogation so that the zoom behavior doesn't kick in
+        d3.event.sourceEvent.stopPropagation();
         callListeners('dragstart', _chart);
     })
     .on('drag', function(d,i){
         _chart.x(d3.event.x);
         _chart.y(d3.event.y);
         _g.attr('transform', "translate(" + _chart.x() + "," + _chart.y() + ")");
+        d3.event.sourceEvent.stopPropagation();
         callListeners('drag', _chart);
         // If the drag originated with a label, we need to fire the "drag.label"
         // event.
@@ -152,6 +157,7 @@ function PixelLayer(anchor){
     .on('dragend', function(){
         _dragging = false;
         _split = false;
+        d3.event.sourceEvent.stopPropagation();
         callListeners('dragend', _chart);
     });
     
@@ -570,7 +576,8 @@ function PixelLayer(anchor){
         var xLabel = cLabels.append('svg:g')
             .classed('x', true)
             .classed('hidden', true)
-            .attr('transform', "translate(" + (width - borderWidth) + "," + 20 + ")");
+            .attr('transform', "translate(" + (width - borderWidth) + "," + 20 + ")")
+            .on('click', function(d){ callListeners('click.split', _chart); });
         xLabel.append('svg:rect')
             .classed('x', true)
             .attr('width', 20)
@@ -976,15 +983,18 @@ function PixelLayer(anchor){
     };
     
     /**
-    #### .boundingRect()
+    #### .boundingRect([scale][,translation])
     Returns the bounding rectangle for this PixelLayer, relative to the parent
-    container.
+    container. An optional scale can be passed which will scale the values and
+    an optional translate will translate them.
     **/
-    _chart.boundingRect = function(){
-        var x = _chart.x();
-        var y = _chart.y();
-        var width = _chart.width();
-        var height = _chart.height();
+    _chart.boundingRect = function(s,t){
+        var scale = s == undefined ? 1 : s;
+        var pan = t == undefined ? [0,0] : t;
+        var x = (_chart.x() * scale) + pan[0];
+        var y = (_chart.y() * scale) + pan[1];
+        var width = _chart.width() * scale;
+        var height = _chart.height() * scale;
         return {
             'top': y,
             'left': x,

@@ -198,6 +198,93 @@ function isFunction(item){
     return Object.prototype.toString.call(item) === "[object Function]";
 }
 
+
+/**
+#### Events(object, events)
+Given an object and array of event names, it will create the mechanisms for 
+event callbacks. The object passed in will have the following methods defined:
+ .on(evt, function)
+    Registers a listener for the given event
+ .removeListener(evt, function)
+    Removes a listener for the given event
+
+The function returns the Events object, which has the following methods:
+  .call(evt[, arg1][, arg2][, ...])
+    Calls the listeners for the given event with the arguments. The context (
+    i.e, 'this') will be the object passed in to createEvents().
+  .callWith(evt, context[, arg1][, arg2][, ...])
+    Calls the listeners for the given event with the given context and arguments.
+  .apply(evt[, args])
+    Calls the listeners for the given event with the arguments given as an array.
+    The context (i.e., 'this') will be the object passed in to createEvents().
+  .applyWith(evt, context[, args])
+    Calls the listeners for the given event with the given context and the 
+    arguments given as an array.
+  .mute(evt)
+    Prevents an event from firing.
+  .unmute(evt)
+    Un-mutes an event, allowing it to fire again.
+**/
+function Events(obj, evts){
+    var _listeners = {};
+    var _muted     = {};
+    var _obj       = {};
+    
+    // Create the callback handlers. We use the jQuery.Callbacks() object
+    evts.forEach(function(d,i){
+        _listeners[d] = $.Callbacks();
+    });
+    
+    // Methods defined on the object passed in *********************************
+    obj.on = function(e,f){
+        _listeners[e].add(f);
+        return obj;
+    };
+    
+    obj.removeListener = function(e,f){
+        _listeners[e].remove(f);
+        return obj;
+    };
+    
+    // Methods defined on the Event object returned ****************************
+    _obj.call = function(evt){
+        if(_muted[evt]){ return; }
+        var args = Array.prototype.slice.call(arguments, 2);
+        _listeners[evt].fireWith(obj, args);
+        return _obj;
+    };
+    
+    _obj.callWith = function(evt, thisObj){
+        if(_muted[evt]){ return; }
+        var args = Array.prototype.slice.call(arguments, 2);
+        _listeners[evt].fireWith(thisObj, args);
+        return _obj;
+    };
+    
+    _obj.apply = function(evt, args){
+        if(_muted[evt]){ return; }
+        _listeners[evt].fireWith(obj, args);
+        return _obj;
+    };
+    
+    _obj.applyWith = function(evt, thisObj, args){
+        if(_muted[evt]){ return; }
+        _listeners[evt].fireWith(thisObj, args);
+        return _obj;
+    };
+    
+    _obj.mute = function(evt){
+        _muted[evt] = true;
+    };
+    
+    _obj.unmute = function(evt){
+        _muted[evt] = false;
+    };
+    
+    return _obj;
+}
+
+
 /**
 #### .moveToFront()
 Moves a D3 selection to the front of its parent. Taken from

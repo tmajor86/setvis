@@ -5,7 +5,11 @@ main.js
 // TODO Zooming
 // TODO Calculate similarities up front (w/ loading screen?)
 // TODO Filter based on similarity?
-// TODO Hook up sample count
+// TODO When zooming, hide bands, show them again afterwards
+// TODO "Overview" mode
+// TODO Move buttons to top bar
+// TODO Be able to select which bands to show based on sample
+// TODO Better positioning when composites are split and layers are added
 
 $(document).ready(function(){
     // Global functions used to customize PixelLayer display and behavior
@@ -25,7 +29,7 @@ $(document).ready(function(){
         else{ return d3.rgb(17, 110, 220); }
     };
     var bandColor     = function(d){
-        var baseColor = d3.rgb(200,200,200);
+        var baseColor = d3.rgb(156,156,156);
         if(d.a.faded() || d.b.faded()){
             return d3.interpolateRgb(d3.rgb(0,0,0), baseColor)(0.3);
         }
@@ -146,7 +150,9 @@ $(document).ready(function(){
             var items = _caseList.select('.list').selectAll('li')
                 .data(cases);
             var newItems = items.enter()
-              .append('li');
+              .append('li')
+              .on('mouseenter', function(d){ callListeners('mouseenter.case', _obj, d); })
+              .on('mouseleave', function(d){ callListeners('mouseleave.case', _obj, d); });
             
             newItems.append('span')
                 .classed('name', true)
@@ -217,10 +223,12 @@ $(document).ready(function(){
                 });
             });
             _addAllBtn.on('click', function(){
-                _caseList.select('.list').selectAll('li')
-                    .each(function(d){
-                        callListeners('add.case', _obj, d);
-                    });
+                var cases = _caseList.select('.list').selectAll('li');
+                var delta = 1.00 / cases[0].length;
+                
+                cases.each(function(d,i){
+                    callListeners('add.case', _obj, d);
+                });
             });
             
             return _obj;
@@ -250,12 +258,18 @@ $(document).ready(function(){
         var _obj = {};
         
         var _pixelLayers = [];
+        var _dirtyLayers = [];
         var _similarityBands = [];
         var _masks = [];
         
         var _trashBounds = null;
         var _overlap = null;
         var _trashOverlap = false;
+        
+        var _zoom = d3.behavior.zoom()
+            .scaleExtent([0.05,1]);
+        var _zoomScale = _zoom.scale();
+        var _zoomPan   = _zoom.translate();
         
         /**
         #### .onMousedown()
@@ -271,6 +285,55 @@ $(document).ready(function(){
         **/
         _obj.onMouseup = function(){
             
+        };
+        
+        /**
+        #### .onCaseMouseenter(case)
+        Handles the mouseenter event for a case
+        **/
+        _obj.onCaseMouseenter = function(c){
+            // Find the pixel layers that contain the data case and fade the
+            // others that do not contain it.
+            _pixelLayers.forEach(function(p){
+                if(!p.faded() && !p.expression().contains(c)){ p.fadeOut(0.4); }
+            });
+            
+            d3.selectAll('path.band')
+                .each(function(d){
+                    // Bring the non-faded bands to the front
+                    if(!d.a.faded() || !d.b.faded()){ d3.select(this).moveToFront(); }
+                })
+              .transition()
+                .duration(500)
+                .style('stroke', function(d){ 
+                    // We spoof our own fading function to fade the 
+                    if(!d.a.faded() || !d.b.faded()){ 
+                        d = {
+                            a: {faded: function(){ return false; }},
+                            b: {faded: function(){ return false; }}
+                        };
+                    }
+                    return bandColor(d); 
+                });
+        };
+        
+        /**
+        #### .onCaseMouseleave(case)
+        Handles the mouseleave event for a case
+        **/
+        _obj.onCaseMouseleave = function(c){
+            // Return the pixel layers to full opacity
+            _pixelLayers.forEach(function(p){
+                if(p.faded()){ p.fadeIn(); }
+            });
+            d3.selectAll('path.band')
+                .each(function(d){
+                    // Bring the non-faded bands to the front
+                    if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
+                })
+              .transition()
+                .duration(500)
+                .style('stroke', function(d){ return bandColor(d); });
         };
         
         /**
@@ -348,6 +411,9 @@ $(document).ready(function(){
         Called whenever a PixelLayer is dragged about the canvas.
         **/
         _obj.onDrag = function(){
+            // Cancel event propagation so that the zoom behavior doesn't kick
+            // in.
+            d3.event.sourceEvent.stopPropagation();
             checkLayerOverlap(this);
             checkTrashOverlap(this);
             drawBands();
@@ -376,7 +442,7 @@ $(document).ready(function(){
             for(var i = 0; i < _pixelLayers.length; i++){
                 var p = _pixelLayers[i];
                 if(p.uuid() === uuid){ continue; }
-                if(rectOverlap(bounds, p.boundingRect())){ 
+                if(rectOverlap(bounds, p.boundingRect(_zoomScale, _zoomPan))){ 
                     overlap = p; 
                     break;
                 }
@@ -407,7 +473,7 @@ $(document).ready(function(){
         when the state changes.
         **/
         function checkTrashOverlap(pl){
-            var overlap = rectOverlap(pl.boundingRect(), _trashBounds);
+            var overlap = rectOverlap(pl.boundingRect(_zoomScale, _zoomPan), _trashBounds);
             if(!_trashOverlap && overlap){
                 _trashOverlap = true;
                 _obj.onTrashOverlapEnter(pl);
@@ -504,7 +570,7 @@ $(document).ready(function(){
             removeLayer(a);
             
             // Update the similarity bands
-            updateBands();
+            updateBands([b]);
         };
         
         /**
@@ -582,12 +648,12 @@ $(document).ready(function(){
             var node = l.node;
             var newExpr;
             if(isOperatorNode(node)){
-                newExpr = SetExpression(node);
+                newExpr = SetExpression(node, _data.elements());
             }
             else{
                 var newOp = OperatorNode('AND');
                 newOp.addChild(node);
-                newExpr = SetExpression(newOp);
+                newExpr = SetExpression(newOp, _data.elements());
             }
             
             l.parent.removeChild(node);
@@ -607,7 +673,30 @@ $(document).ready(function(){
             this.expression(newExpr).redraw();
             
             // Update the similarity bands
+            updateBands([this,]);
+        };
+        
+        
+        /**
+        #### split(PixelLayer)
+        Splits a pixel layer into its composed layers. Only the first level is
+        split.
+        **/
+        function split(pl){
+            var newExprs = pl.expression().split();
+            newExprs.forEach(function(e){
+                createPixelLayer(e).render();
+            });
+            removeLayer(pl);
             updateBands();
+        }
+        
+        /**
+        #### .onSplitClick()
+        Handles the 'click.split' event from a PixelLayer
+        **/
+        _obj.onSplitClick = function(){
+           split(this); 
         };
         
         /**
@@ -615,7 +704,7 @@ $(document).ready(function(){
         Called when the operator of a pixel layer changes
         **/
         _obj.onOperatorChange = function(d){
-            updateBands();
+            updateBands([this,]);
         };
         
         /**
@@ -672,6 +761,9 @@ $(document).ready(function(){
         **/
         _obj.onBandMouseenter = function(d){
             d3.select(this).classed('hover', true);
+            
+            d3.select('#element-label').html("Similarity: " + d.similarity);
+            
             _pixelLayers.forEach(function(p){
                 var uuid = p.uuid();
                 if(uuid === d.a.uuid() || uuid === d.b.uuid()){ return; }
@@ -695,6 +787,9 @@ $(document).ready(function(){
         **/
         _obj.onBandMouseleave = function(d){
             d3.select(this).classed('hover', false);
+            
+            d3.select('#element-label').html("");
+            
             _pixelLayers.forEach(function(p){
                 p.fadeIn();
             });
@@ -721,15 +816,20 @@ $(document).ready(function(){
             removeLayer(a);
             
             // Update the similarity bands
-            updateBands();
+            updateBands([b,]);
         };
         
         /** 
-        #### updateBands()
-        Helper function that updates the similarity bands on the page
+        #### updateBands(dirty)
+        Helper function that updates the similarity bands on the page. The
+        function tries to update them intelligently, only recalculating
+        similarities if there is a new band to add or remove, but if any "dirty"
+        pixel layers are passed in to the function, bands connected to them will
+        for sure be updated.
         **/
-        function updateBands(){
-            _similarityBands = createBands();
+        function updateBands(d){
+            var dirty = d == undefined ? [] : d;
+            _similarityBands = createBands(dirty);
             drawBands();
             setMasks();
         }
@@ -822,24 +922,123 @@ $(document).ready(function(){
         }
         
         /**
-        #### createBands()
+        #### createBands(dirty)
         Calculates the similarity metric for all PixelLayers on the canvas and
-        creates the corresponding data structures for drawing them.
+        creates the corresponding data structures for drawing them. Any pixels
+        layers passed in an array to the function will have the bands recreated,
+        forcing an update.
         **/
-        function createBands(){
+        function createBands(d){
             // Create all pairs of pixelLayers
             var combos = combinations(_pixelLayers, 2);
+            var dirty = d == undefined ? [] : d;
             var bands = [];
             var elements = _data.elements();
+            var dirtyCount = 0;
+            var reusedCount = 0;
+            var createdCount = 0;
+            var removedCount = 0;
+            
+            function findBand(p){
+                var uuid0 = p[0].uuid();
+                var uuid1 = p[1].uuid();
+                var found = null;
+                
+                _similarityBands.forEach(function(sb){
+                    var uuidA = sb.a.uuid();
+                    var uuidB = sb.b.uuid();
+                    if((uuid0 === uuidA && uuid1 === uuidB) ||
+                       (uuid0 === uuidB && uuid1 === uuidA)){
+                           found = sb;
+                           return;
+                    }
+                });
+                return found;
+            }
+            
             combos.forEach(function(p){
+                var uuid0 = p[0].uuid();
+                var uuid1 = p[1].uuid();
+                
+                
+                // Reuse any existing bands unless a pixel layer has been marked
+                // as dirty.
+                var reuse = true;
+                dirty.forEach(function(pl){
+                    var uuid = pl.uuid();
+                    if(uuid === uuid0 || uuid === uuid1){
+                        dirtyCount += 1;
+                        reuse = false; 
+                    }
+                });
+                
+                if(reuse){
+                    var found = findBand(p);
+                    if(found != null){ 
+                        reusedCount += 1;
+                        bands.push(found);
+                        return;
+                    }
+                }
+                
+                // Create a new band
                 bands.push({
                     a: p[0],
                     b: p[1],
                     similarity: p[0].expression().similarity(p[1].expression(), elements),
                 });
+                createdCount += 1;
             });
+            removedCount = Math.max(_similarityBands.length - bands.length, 0);
+            
+            // console.log(dirtyCount + " dirty bands");
+            // console.log(reusedCount + " reused bands");
+            // console.log(createdCount + " created bands");
+            // console.log(removedCount + " removed bands");
+            
             return bands;
         }
+        
+        /**
+        #### .onZoomstart()
+        Called when the zoom event starts.
+        **/
+        _obj.onZoomstart = function(){};
+         
+        /**
+        #### .onZoom()
+        Called when the zoom event occurs.
+        **/
+        _obj.onZoom = function(){
+            d3.select(_canvas + " g.layers")
+                .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+            d3.select(_canvas + " g.masks")
+                .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+            d3.select(_canvas + " g.bands")
+                .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+            _zoomScale = _zoom.scale();
+            _zoomPan   = _zoom.translate();
+        };
+
+        /**
+        #### .onZoomend()
+        Called when the zoom event ends.
+        **/ 
+        _obj.onZoomend = function(){
+            
+        };
+        
+        /**
+        #### .scale()
+        Gets or sets the current zoom scale.
+        **/
+        _obj.scale = function(s){
+            if(!arguments.length){ return _zoomScale; }
+            _zoom.scale(s);
+            _zoomScale = _zoom.scale();
+            _zoom.event(d3.select(_canvas));
+            return _obj;
+        };
         
         /**
         #### createPixelLayer(expression)
@@ -854,8 +1053,8 @@ $(document).ready(function(){
                 .expression(expression)
                 .pixelColor(pixelColor)
                 .labelColor(labelColor)
-                .x(col * (184 + 30) + 30)
-                .y(row * (184 + 30) + 60)
+                .x((col * (184 + 30) + 30) - _zoomPan[0])
+                .y((row * (184 + 30) + 60) - _zoomPan[1])
                 .on('mousedown', _obj.onMousedown)
                 .on('mouseup', _obj.onMouseup)
                 .on('mouseenter.pixel', _obj.onElementMouseenter)
@@ -866,7 +1065,8 @@ $(document).ready(function(){
                 .on('drag', _obj.onDrag)
                 .on('dragend', _obj.onDragend)
                 .on('drag.label', _obj.onLabelDrag)
-                .on('change.operator', _obj.onOperatorChange);
+                .on('change.operator', _obj.onOperatorChange)
+                .on('click.split', _obj.onSplitClick);
             _pixelLayers.unshift(pl);
             return pl;
         }
@@ -879,13 +1079,11 @@ $(document).ready(function(){
             // Construct the SetExpression
             var node = DataNode(dataCase);
             var operator = OperatorNode('AND');
-            var expression = SetExpression(operator);
+            var expression = SetExpression(operator, _data.elements());
             operator.addChild(node);
             
             // Create and render the pixel layer
-            createPixelLayer(expression).render();
-            
-            // Update the similarity bands
+            var pl = createPixelLayer(expression).render();
             updateBands();
         };
         
@@ -910,7 +1108,14 @@ $(document).ready(function(){
             
             d3.select(_canvas).append('svg:g')
                 .classed('layers', true);
-            
+                
+            // Hook up zoom events
+            _zoom
+                .on('zoomstart', _obj.onZoomstart)
+                .on('zoom', _obj.onZoom)
+                .on('zoomend', _obj.onZoomend);
+            d3.select(_canvas).call(_zoom);
+                
             // Hook up the similarity checkbox
             d3.select('#bands-cb')
                 .on('change', function(d){ _obj.toggleBands(this.checked); });
@@ -936,6 +1141,8 @@ $(document).ready(function(){
         .on('mouseenter.element', function(d){ controller.onGroupMouseenter(groupAccessor(d)); })
         .on('mouseleave.element', controller.onElementMouseleave)
         .on('mouseleave.element', function(d){ controller.onGroupMouseleave(groupAccessor(d)); })
+        .on('mouseenter.case', controller.onCaseMouseenter)
+        .on('mouseleave.case', controller.onCaseMouseleave)
         .init();
     });
     

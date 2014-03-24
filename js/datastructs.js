@@ -1,5 +1,4 @@
 // TODO Add some caching of calculated values, similarities, etc.
-// TODO Implement intersection() and union()
 // FIXME Fix bug(s) w/ arguments of Set constructor
 
 /**
@@ -65,9 +64,10 @@ in the set. If the hash function is not specified, the object hash will be its
 string value.
 **/
 function Set(data, hash){
-    var _data = {};
-    var _hash = hash;
-    var _obj  = {};
+    var _data   = {};
+    var _hash   = hash;
+    var _obj    = {};
+    var _events = Events(_obj, ['change']);
     
     /**
     #### .add(element)
@@ -75,6 +75,7 @@ function Set(data, hash){
     **/
     _obj.add = function(e){
         _data[_hash(e)] = e;
+        _events.call('change');
         return e;
     };
     
@@ -95,6 +96,7 @@ function Set(data, hash){
         var hashed = _hash(e);
         var existed = Object.prototype.hasOwnProperty.call(_data, hashed);
         delete _data[hashed];
+        _events.call('change');
         return existed;
     };
     
@@ -104,6 +106,7 @@ function Set(data, hash){
     **/
     _obj.clear = function(){
         _data = {};
+        _events.call('change');
         return true;
     };
     
@@ -147,6 +150,14 @@ function Set(data, hash){
             set.add(e);
         })
         return set;
+    };
+    
+    /**
+    #### .hash()
+    Returns the hash function used for this set
+    **/
+    _obj.hash = function(){
+        return _hash;
     };
     
     /**
@@ -196,10 +207,11 @@ metadata. The data passed in should be either an array or a Set. If it is an
 array, the default set hash function will be used.
 **/
 function DataCase(label, data, meta){
-    var _label = label;
-    var _set   = isArray(data) ? Set(data) : data;
-    var _meta  = meta ? meta : {};
-    var _obj   = {};
+    var _label  = label;
+    var _set    = isArray(data) ? Set(data) : data;
+    var _meta   = meta ? meta : {};
+    var _obj    = {};
+    var _events = Events(_obj, ['change']);
 
     /**
     #### .label([string])
@@ -208,6 +220,7 @@ function DataCase(label, data, meta){
     _obj.label = function(l){
         if(!arguments.length){ return _label; }
         _label = l;
+        _events.call('change');
         return _obj;
     };
     
@@ -218,6 +231,7 @@ function DataCase(label, data, meta){
     _obj.set = function(d){
         if(!arguments.length){ return _set; }
         _set = isArray(d) ? Set(d) : d;
+        _events.call('change');
         return _obj;
     };
     
@@ -232,6 +246,7 @@ function DataCase(label, data, meta){
             return _meta[key]; 
         }
         _meta[key] = val;
+        _events.call('change');
         return _obj;
     };
     
@@ -240,7 +255,7 @@ function DataCase(label, data, meta){
 
 
 /**
-## SetExpression(root)
+## SetExpression(root,elements)
 An expression tree that represents operations applied to the sets of elements
 associated with data cases. For example, we can take two sets of elements, 
 union them together, and then ask "Is x in the unioned set?"
@@ -259,9 +274,27 @@ produce a non-integer number - rather than calculating a binary 0 or 1 if an
 element is in the unioned set, a fraction is returned representing how many of 
 the subsets out of the total contain the element.
 **/
-function SetExpression(root){
-    var _root = root;
-    var _obj = {};
+function SetExpression(root,e){
+    var _root     = root;
+    var _elements = e;
+    var _cache    = null;
+    var _obj      = {};
+    var _events   = Events(_obj, ['change']);
+    
+    /**
+    #### bubbleChange()
+    Bubbles up any changes that occur to the elements of the expression.
+    **/
+    function bubbleChange(){
+        _events.call('change');
+    };
+    
+    /**
+    #### refreshCache()
+    Refreshes the cache of values for each of the elements in this expression.
+    **/
+    function refreshCache(){
+    };
     
     /**
     #### .root()
@@ -280,6 +313,15 @@ function SetExpression(root){
         var visitor = ValueCalculator(e);
         _root.accept(visitor);
         return visitor.value();
+    };
+    
+    
+    /**
+    #### .contains(case)
+    Returns true if this expression contains the given data case
+    **/
+    _obj.contains = function(c){
+        return _root.contains(c);
     };
     
     /**
@@ -387,6 +429,39 @@ function SetExpression(root){
     };
     
     /**
+    #### .split([nested])
+    Splits this expression into its subexpressions. If the nested flag is passed
+    in, it will completely split the expression, otherwise only the top children
+    are split. This is a destructive action. The original expression will be
+    changed.
+    **/
+    _obj.split = function(n){
+        var nested = n == undefined ? false : n;
+        var newExprs = [];
+        var split = _root.split(nested);
+        var newExprs = [];
+        
+        split.forEach(function(n,i){
+            var newRoot = null;
+            if(isOperatorNode(n)){ newRoot = n; }
+            else{
+                newRoot = OperatorNode('AND');
+                newRoot.addChild(n);
+            }
+            
+            if(i == 0){
+                _root = newRoot;
+                newExprs.push(_obj);
+            }
+            else{
+                newExprs.push(SetExpression(newRoot,_elements));
+            }
+        });
+        
+        return newExprs;
+    };
+    
+    /**
     #### .merge(expression, flatten)
     Merges another SetExpression with this one.
     **/
@@ -394,19 +469,27 @@ function SetExpression(root){
         var otherRoot = e.root();
         var composite = e.count() > 1;
         
+        // Don't fire the change event for every little change. We will fire
+        // it once after all changes have been made for the merge.
+        _events.mute('change');
         if(composite){
             // The other expression is a composite expression. Create a new
             // level in the expression tree.
             var newRoot = OperatorNode('AND');
             newRoot.addChild(_root);
             newRoot.addChild(otherRoot);
+            _root.removeListener('change', bubbleChange);
             _root = newRoot;
+            _root.on('change', bubbleChange);
             _obj.flatten();
         }
         else{
             // The other expression is a single set.
             _root.addChild(otherRoot.children()[0]);
         }
+        
+        _events.unmute('change');
+        _events.call('change');
         return _obj;
     };
     
@@ -418,8 +501,12 @@ function SetExpression(root){
         var rChildren = _root.children();
         var nChildren = [];
         
+        _events.mute('change');
         if(rChildren.length == 1 && isOperatorNode(rChildren[0])){
+            // Change the root
+            _root.removeListener('change', bubbleChange);
             _root = rChildren[0];
+            _root.on('change', bubbleChange);
             return;
         }
         rChildren.forEach(function(n){
@@ -433,6 +520,10 @@ function SetExpression(root){
         });
         _root.clear();
         nChildren.forEach(function(n){ _root.addChild(n); });
+        
+        _events.unmute('change');
+        _events.call('change');
+        return _obj;
     }
     
     /**
@@ -445,7 +536,7 @@ function SetExpression(root){
         _root.children().forEach(function(n){
             newRoot.addChild(n);
         });
-        var newExpr = SetExpression(newRoot);
+        var newExpr = SetExpression(newRoot, _elements);
         newExpr.merge(e);
         return newExpr;
     };
@@ -458,6 +549,12 @@ function SetExpression(root){
     _obj.accept = function(v){
         _root.accept(v);
     };
+    
+    // Bubble up the root 'change' event
+    _root.on('change', bubbleChange);
+    
+    // Listen to the 'change' event to refresh the value cache
+    _obj.on('change', refreshCache);
     
     return _obj;
 }
@@ -473,13 +570,21 @@ function OperatorNode(operator){
     var _operator = operator;
     var _children = [];
     var _obj      = {};
-
+    var _events   = Events(_obj, ['change']);
+    
+    function bubbleChange(){
+        _events.call('change');
+    };
+    
     /**
     #### .addChild(node)
     Adds a child node to this operator.
     **/
     _obj.addChild = function(n){
         _children.push(n);
+        _events.call('change');
+        // Bubble up the "change" event from any added nodes
+        n.on('change', bubbleChange);
         return _obj;
     };
     
@@ -489,7 +594,13 @@ function OperatorNode(operator){
     **/
     _obj.removeChild = function(n){
         for(var i = 0; i < _children.length; i++){
-            if(_children[i] === n){ _children.splice(i, 1); return; }
+            if(_children[i] === n){ 
+                _children.splice(i, 1);
+                _events.call('change');
+                // No longer listen to the "change" event from the removed child
+                n.removeListener('change', bubbleChange);
+                return _obj; 
+            }
         }
         return _obj;
     };
@@ -507,7 +618,13 @@ function OperatorNode(operator){
     Removes the children from this operator.
     **/
     _obj.clear = function(){
+        // No longer listen to the "change" event from the removed children
+        _children.forEach(function(n){
+            n.removeListener('change', bubbleChange);
+        });
+        
         _children = [];
+        _events.call('change');
         return _obj;
     };
     
@@ -518,8 +635,47 @@ function OperatorNode(operator){
     _obj.operator = function(o){
         if(!arguments.length){ return _operator; }
         _operator = o;
+        _events.call('change');
         return _obj;
     };
+    
+    /**
+    #### .contains(case)
+    Returns true if the subtree under this operator contains the given data
+    case
+    **/
+    _obj.contains = function(c){
+        for(var i = 0; i < _children.length; i++){
+            if(_children[i].contains(c)){ return true; }
+        }
+        return false;
+    };
+    
+    
+    /**
+    #### .split([nested])
+    Splits any subexpressions from this OperatorNode and returns an array of
+    OperatorNodes representing the split. This is a destructive action; the
+    children of this node will be removed. If nested is true, it will 
+    recursively split all of the subexpressions down the tree.
+    **/
+    _obj.split = function(n){
+        var nested = n == undefined ? false : n;
+        var newNodes = [];
+        
+        _children.forEach(function(c){
+            if(isOperatorNode(c)){
+                if(nested){ newNodes = [].concat.apply(newNodes, c.split(nested)); }
+                else{ newNodes.push(c); }
+            }
+            else{
+                newNodes.push(c);
+            }
+        });
+        _obj.clear();
+        return newNodes;
+    };
+    
     
     /**
     #### .accept(visitor)
@@ -531,7 +687,7 @@ function OperatorNode(operator){
         _children.forEach(function(c){ c.accept(v); });
         v.visitPost(_obj);
     };
-    
+
     return _obj;
 }
 
@@ -542,8 +698,9 @@ This node represents a data case/data set in the boolean expression tree. These
 nodes are found at the leaves of the tree.
 **/
 function DataNode(dataCase){
-    var _obj = {};
     var _data = dataCase;
+    var _obj = {};
+    var _events = Events(_obj, ['change']);
     
     /**
     #### .data()
@@ -561,6 +718,15 @@ function DataNode(dataCase){
         return _data.set().has(e) ? 1 : 0;
     };
     
+    
+    /**
+    #### .contains(case)
+    Returns true if this data node contains the given data case.
+    **/
+    _obj.contains = function(c){
+        return c.label() === _data.label();
+    };
+    
     /**
     #### .accept(visitor)
     Implements the visitor pattern to allow various operations on this node.
@@ -569,6 +735,9 @@ function DataNode(dataCase){
         v.visitPre(_obj);
         v.visitPost(_obj);
     };
+    
+    // Pass along the "change" event from the data case
+    _data.on('change', function(){ _events.call('change'); });
     
     return _obj;
 }
