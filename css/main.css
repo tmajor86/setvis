@@ -313,7 +313,7 @@ psuedo-selector trick */
 }
 
 #controls .search-list {
-    width: 170px;
+    width: 190px;
 }
 
 #controls .search-list input.search{
@@ -345,6 +345,33 @@ psuedo-selector trick */
     cursor: default;
 }
 
+#samples-btn {
+    position: fixed !important;
+    top: 10px;
+    right: 90px;
+}
+
+#elements-btn {
+    position: fixed !important;
+    top: 10px;
+    right: 0px;
+}
+
+#bands {
+    position: fixed !important;
+    top: 60px;
+    right: 0px;
+    padding-right: 10px;
+    padding-bottom: 2px;
+    background-color: #222;
+}
+
+#lists{
+    position: fixed !important;
+    right: 0px;
+}
+
+
 #samples-filters,
 #samples-footer {
     background-color: #9c9c9c;
@@ -352,7 +379,7 @@ psuedo-selector trick */
 
 #samples-filters button {
     float: left;
-    width: 50px;
+    width: 57px;
     height: 30px;
     margin: 4px 3px 4px 3px;
 }
@@ -367,7 +394,7 @@ psuedo-selector trick */
 
 #samples-filters button.sort.asc img,
 #samples-filters button.sort.desc img {
-    left: 0px;
+    left: -1px;
     top: 0px;
 }
 
@@ -379,12 +406,12 @@ psuedo-selector trick */
 
 #samples-filters button.sort:after {
     top: 13px;
-    left: 19.5px;
+    left: 23px;
 }
 
 #samples-filters button.sort:hover:after {
     top: 12px;
-    left: 18.5px;
+    left: 22px;
 }
 
 #samples-footer button {
@@ -397,7 +424,7 @@ psuedo-selector trick */
 #sample-count {
     width: 80px;
     margin: 0px 4px 0px 4px;
-    line-height: 40px;
+    line-height: 38px;
     text-align: center;
     vertical-align: middle;
     font-size: .75em;

@@ -2,14 +2,14 @@
 main.js
 *******************************************************************************/
 // TODO Refine mask for bands (currently just a rectangle over the pixel area)?
-// TODO Zooming
 // TODO Calculate similarities up front (w/ loading screen?)
 // TODO Filter based on similarity?
-// TODO When zooming, hide bands, show them again afterwards
 // TODO "Overview" mode
 // TODO Move buttons to top bar
 // TODO Be able to select which bands to show based on sample
 // TODO Better positioning when composites are split and layers are added
+// TODO Refine dropping rules? How do I create (X || Y) && (Z || A) && (B || C)?
+// TODO semantic zooming
 
 $(document).ready(function(){
     // Global functions used to customize PixelLayer display and behavior
@@ -29,7 +29,7 @@ $(document).ready(function(){
         else{ return d3.rgb(17, 110, 220); }
     };
     var bandColor     = function(d){
-        var baseColor = d3.rgb(156,156,156);
+        var baseColor = d3.rgb(84,84,84);
         if(d.a.faded() || d.b.faded()){
             return d3.interpolateRgb(d3.rgb(0,0,0), baseColor)(0.3);
         }
@@ -762,8 +762,6 @@ $(document).ready(function(){
         _obj.onBandMouseenter = function(d){
             d3.select(this).classed('hover', true);
             
-            d3.select('#element-label').html("Similarity: " + d.similarity);
-            
             _pixelLayers.forEach(function(p){
                 var uuid = p.uuid();
                 if(uuid === d.a.uuid() || uuid === d.b.uuid()){ return; }
@@ -779,6 +777,9 @@ $(document).ready(function(){
                 .classed('hover', function(d){ return common.has(d); });
             d.b.selectAll('rect.pixel')
                 .classed('hover', function(d){ return common.has(d); });
+                
+            d3.select('#element-label').html(d.similarity + " matched states");
+            d3.select('#class-label').html(common.count() + " shared elements");
         };
         
         /**
@@ -789,6 +790,7 @@ $(document).ready(function(){
             d3.select(this).classed('hover', false);
             
             d3.select('#element-label').html("");
+            d3.select('#class-label').html("");
             
             _pixelLayers.forEach(function(p){
                 p.fadeIn();
@@ -960,7 +962,6 @@ $(document).ready(function(){
                 var uuid0 = p[0].uuid();
                 var uuid1 = p[1].uuid();
                 
-                
                 // Reuse any existing bands unless a pixel layer has been marked
                 // as dirty.
                 var reuse = true;
@@ -990,12 +991,6 @@ $(document).ready(function(){
                 createdCount += 1;
             });
             removedCount = Math.max(_similarityBands.length - bands.length, 0);
-            
-            // console.log(dirtyCount + " dirty bands");
-            // console.log(reusedCount + " reused bands");
-            // console.log(createdCount + " created bands");
-            // console.log(removedCount + " removed bands");
-            
             return bands;
         }
         
@@ -1010,6 +1005,9 @@ $(document).ready(function(){
         Called when the zoom event occurs.
         **/
         _obj.onZoom = function(){
+            
+            
+            
             d3.select(_canvas + " g.layers")
                 .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
             d3.select(_canvas + " g.masks")
