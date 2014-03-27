@@ -7,9 +7,10 @@ main.js
 // TODO "Overview" mode
 // TODO Move buttons to top bar
 // TODO Be able to select which bands to show based on sample
-// TODO Better positioning when composites are split and layers are added
+// TODO Better positioning when composites are split and layers are added **
 // TODO Refine dropping rules? How do I create (X || Y) && (Z || A) && (B || C)?
 // TODO semantic zooming
+// TODO zooming with buttons should go from center of canvas
 
 $(document).ready(function(){
     // Global functions used to customize PixelLayer display and behavior
@@ -38,6 +39,12 @@ $(document).ready(function(){
     var bandScale     = d3.scale.linear()
         .domain([60,225])
         .range([2,30]);
+    var zoomRange     = [0.05, 20];
+    var zoomBtnScale  = d3.scale.pow()
+        .domain([0,20])
+        .range(zoomRange)
+        .clamp(true)
+        .exponent(2.5);
     
     /**
     #### isComposite(PixelLayer)
@@ -248,13 +255,15 @@ $(document).ready(function(){
     
     
     /**
-    ## Controller()
+    ## Controller(canvas, trash, bandsCB, zoom, DataSource)
     The main controller for the page.
     **/
-    var Controller = function(canvas, trash, dataSource){
+    var Controller = function(canvas, trash, bandsCB, zoom, dataSource){
         var _canvas = canvas;
         var _trash = trash;
         var _data = dataSource;
+        var _bandsCB = bandsCB;
+        var _zoomDiv = zoom;
         var _obj = {};
         
         var _pixelLayers = [];
@@ -267,9 +276,10 @@ $(document).ready(function(){
         var _trashOverlap = false;
         
         var _zoom = d3.behavior.zoom()
-            .scaleExtent([0.05,20]);
+            .scaleExtent(zoomRange);
         var _zoomScale = _zoom.scale();
         var _zoomPan   = _zoom.translate();
+        var _zoomThrottle = null;
         
         /**
         #### .onMousedown()
@@ -1000,14 +1010,12 @@ $(document).ready(function(){
         **/
         _obj.onZoomstart = function(){};
          
+        
         /**
         #### .onZoom()
         Called when the zoom event occurs.
         **/
         _obj.onZoom = function(){
-            
-            
-            
             d3.select(_canvas + " g.layers")
                 .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
             d3.select(_canvas + " g.masks")
@@ -1016,6 +1024,11 @@ $(document).ready(function(){
                 .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
             _zoomScale = _zoom.scale();
             _zoomPan   = _zoom.translate();
+            
+            var zoomDiv = d3.select(_zoomDiv);
+            zoomDiv.select('#zoom-level').html(Math.round(_zoomScale * 100) + "%");
+            zoomDiv.select('#zoom-out-btn').classed('disabled', function(d){ return zoomRange[0] == _zoomScale; });
+            zoomDiv.select('#zoom-in-btn').classed('disabled', function(d){ return zoomRange[1] == _zoomScale; });
         };
 
         /**
@@ -1115,8 +1128,21 @@ $(document).ready(function(){
             d3.select(_canvas).call(_zoom);
                 
             // Hook up the similarity checkbox
-            d3.select('#bands-cb')
+            d3.select(_bandsCB)
                 .on('change', function(d){ _obj.toggleBands(this.checked); });
+                
+            // Hook up the zoom buttons
+            var zoomStep = 0;
+            d3.select(_zoomDiv).select('#zoom-in-btn')
+                .on('click', function(d){ 
+                    var invert = zoomBtnScale.invert(_zoomScale) + 1;
+                    _obj.scale(zoomBtnScale(invert)); 
+                });
+            d3.select(_zoomDiv).select('#zoom-out-btn')
+                .on('click', function(d){ 
+                    var invert = zoomBtnScale.invert(_zoomScale) - 1;
+                    _obj.scale(zoomBtnScale(invert)); 
+                });
             
             return _obj;
         };
@@ -1129,7 +1155,7 @@ $(document).ready(function(){
     var dataSource = AquaDataSource('data/aqua/order.csv', 'data/aqua/samples.csv')
     .on('success', function(elements, cases){
         // Initialize the main controller
-        var controller = Controller("#canvas", "#trash", this).init();
+        var controller = Controller("#canvas", "#trash", "#bands-cb", "#zoom", this).init();
         
         // Initialize the lists
         var listController = ListController('#controls', this)

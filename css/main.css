@@ -361,7 +361,7 @@ psuedo-selector trick */
     position: fixed !important;
     top: 60px;
     right: 0px;
-    padding-right: 10px;
+    padding-right: 9px;
     padding-bottom: 2px;
     background-color: #222;
 }
@@ -507,12 +507,65 @@ psuedo-selector trick */
 }
 
 #bands label {
-    margin-left: 10px;
+    margin-left: 11px;
 }
 
 #bands-cb {
     margin-left: 8px;
 }
+
+#zoom {
+    position: fixed;
+    top: 85px;
+    right: 0px;
+    width: 100px;
+    height: 20px;
+    background-color: #222;
+    color: #eee; 
+    line-height: 21px; 
+    vertical-align: middle;
+    text-align: center;
+}
+
+#zoom-out-btn {
+    float: left;
+    width: 19px;
+    height: 100%;
+    border-right: 1px solid black;
+    background-color: #333;
+}
+
+#zoom-out-btn.disabled,
+#zoom-in-btn.disabled {
+    background-color: #222 !important;
+}
+
+#zoom-out-btn:hover,
+#zoom-in-btn:hover {
+    cursor: pointer;
+    background-color: #555;
+}
+
+#zoom-out-btn:active,
+#zoom-in-btn:active {
+    background-color: #333;
+}
+
+#zoom-level {
+    float: left;
+    width: 59px;
+    height: 100%;
+    border-right: 1px solid black;
+    font-size: .7em; 
+}
+
+#zoom-in-btn {
+    float: left; 
+    width: 20px; 
+    height: 100%; 
+    background-color: #333;
+}
+
 
 #canvas {
     position: absolute;
