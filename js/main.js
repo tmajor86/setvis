@@ -267,7 +267,7 @@ $(document).ready(function(){
         var _trashOverlap = false;
         
         var _zoom = d3.behavior.zoom()
-            .scaleExtent([0.05,1]);
+            .scaleExtent([0.05,20]);
         var _zoomScale = _zoom.scale();
         var _zoomPan   = _zoom.translate();
         
