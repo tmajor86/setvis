@@ -20,14 +20,14 @@ $(document).ready(function(){
         // 'this' is the PixelLayer
         var count = this.expression().count();
         if(this.__old__){ return d3.rgb(239,72,95); }
-        else if(count == 1){ return d3.rgb(17, 110, 220); }
+        else if(count == 1){ return d3.rgb(88,153,230); }
         else if(this.operator() === "OR"){ return d3.rgb(255,255,0); }
         else{ return d3.rgb(156,247,71); }
     };
     var labelColor    = function(){
         // 'this' is the PixelLayer
         if(isComposite(this)){ return d3.rgb(156,247,71); }
-        else{ return d3.rgb(17, 110, 220); }
+        else{ return d3.rgb(88,153,230); }
     };
     var bandColor     = function(d){
         var baseColor = d3.rgb(84,84,84);
@@ -1134,7 +1134,11 @@ $(document).ready(function(){
             // Hook up the zoom buttons
             var zoomStep = 0;
             d3.select(_zoomDiv).select('#zoom-in-btn')
-                .on('click', function(d){ 
+                .on('mousedown', function(d){
+                    // TODO: Set interval to listen to repeated mouse clicks
+                    
+                    
+                    
                     var invert = zoomBtnScale.invert(_zoomScale) + 1;
                     _obj.scale(zoomBtnScale(invert)); 
                 });
