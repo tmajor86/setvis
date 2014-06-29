@@ -5,7 +5,6 @@ main.js
 // TODO Calculate similarities up front (w/ loading screen?)
 // TODO Filter based on similarity?
 // TODO "Overview" mode
-// TODO Move buttons to top bar
 // TODO Be able to select which bands to show based on sample
 // TODO Better positioning when composites are split and layers are added **
 // TODO Refine dropping rules? How do I create (X || Y) && (Z || A) && (B || C)?
@@ -281,27 +280,38 @@ $(document).ready(function(){
         var _zoomPan   = _zoom.translate();
         var _zoomThrottle = null;
         
+        var _selection = [];
+        
         /**
         #### .onMousedown()
         Handles the mousedown event from a PixelLayer.
         **/
-        _obj.onMousedown = function(){
-
-        };
+        _obj.onMousedown = function(){};
         
         /**
         #### .onMouseup()
         Handles the mouseup event from a PixelLayer.
         **/
-        _obj.onMouseup = function(){
-            
-        };
+        _obj.onMouseup = function(){};
+        
+        
+        _obj.onMouseEnter = function(){};
+        
+        
+        _obj.onMouseLeave = function(){
+            if(_selection.length >=1){
+                d3.select('#element-label').html(_selection[4]);
+                d3.select('#class-label').html(_selection[5]).classed("similar", true);
+            }
+        }
+        
         
         /**
         #### .onCaseMouseenter(case)
         Handles the mouseenter event for a case
         **/
         _obj.onCaseMouseenter = function(c){
+            if(_selection.length >= 1){ return; }
             // Find the pixel layers that contain the data case and fade the
             // others that do not contain it.
             _pixelLayers.forEach(function(p){
@@ -332,6 +342,7 @@ $(document).ready(function(){
         Handles the mouseleave event for a case
         **/
         _obj.onCaseMouseleave = function(c){
+            if(_selection.length >= 1){ return; }
             // Return the pixel layers to full opacity
             _pixelLayers.forEach(function(p){
                 if(p.faded()){ p.fadeIn(); }
@@ -350,11 +361,28 @@ $(document).ready(function(){
         #### .onElementMouseenter(element)
         Handles the mouseenter event for an element/pixel.
         **/
-        _obj.onElementMouseenter = function(element){
+        _obj.onElementMouseenter = function(element, i, layer){
+            if(_selection.length >=1){
+                if(layer == null){ return; }
+                else if(_selection.indexOf(layer.uuid()) == -1){ return; }
+                else{             
+                    var value = valueAccessor(element);
+                    d3.select('#element-label').html(value);
+                    _selection[3].a.selectAll('rect.pixel').classed('hover', function(d){
+                        return valueAccessor(d) === value;
+                    });
+                    _selection[3].b.selectAll('rect.pixel').classed('hover', function(d){
+                        return valueAccessor(d) === value;
+                    });
+                    return;
+                }
+            }
+            
             var value = valueAccessor(element);
             var empty = d3.select(this).classed('empty');
             
             d3.select('#element-label').html(value);
+            
             if(!empty){
                 // Highlight any other instances of that element
                 d3.selectAll('rect.pixel').classed('hover', function(d){
@@ -376,7 +404,20 @@ $(document).ready(function(){
         #### .onElementMouseleave(element)
         Handles the mouseleave event for an element/pixel.
         **/
-        _obj.onElementMouseleave = function(element){
+        _obj.onElementMouseleave = function(element, i, layer){
+            if(_selection.length >=1){
+                if(layer == null){ return; }
+                else if(_selection.indexOf(layer.uuid()) == -1){ return; }
+                else{
+                    d3.select('#element-label').html("");
+                    // d3.select('#element-label').html(_selection[4]);
+//                     d3.select('#class-label').html(_selection[5]);
+                    _selection[3].a.selectAll('rect.pixel').classed('hover', false);
+                    _selection[3].b.selectAll('rect.pixel').classed('hover', false);
+                    return;
+                }
+            }
+            
             d3.select('#element-label').html("");
             d3.selectAll('rect.pixel').classed('hover', false);
             
@@ -392,16 +433,24 @@ $(document).ready(function(){
         #### .onGroupMouseenter(element)
         Handles the mouseenter event for a group of elements/pixels.
         **/
-        _obj.onGroupMouseenter = function(group){
-            d3.select('#class-label').html(group);
+        _obj.onGroupMouseenter = function(group, layer){
+            if(_selection.length >=1){
+                if(layer == null){ return; }
+                else if(_selection.indexOf(layer.uuid()) == -1){ return; }
+            }
+            d3.select('#class-label').html(group).classed('similar', false);
         };
         
         /**
         #### .onGroupMouseleave(element)
         Handles the mouseleave event for a group of elements/pixels.
         **/
-        _obj.onGroupMouseleave = function(group){
-            d3.select('#class-label').html("");
+        _obj.onGroupMouseleave = function(group, layer){
+            if(_selection.length >=1){
+                if(layer == null){ return; }
+                else if(_selection.indexOf(layer.uuid()) == -1){ return; }
+            }
+            d3.select('#class-label').html("").classed('similar', false);
         };
         
         /**
@@ -409,6 +458,7 @@ $(document).ready(function(){
         Called when the dragging operation on a PixelLayer object starts.
         **/
         _obj.onDragstart = function(){
+            clearSelection();
             // Bring the dragged PixelLayer object to the front of the layers
             // externally and internally
             moveToFront(this);
@@ -770,6 +820,7 @@ $(document).ready(function(){
         Called when the mouse enters a similarity band.
         **/
         _obj.onBandMouseenter = function(d){
+            if(_selection.length >= 1){ return; }
             d3.select(this).classed('hover', true);
             
             _pixelLayers.forEach(function(p){
@@ -784,12 +835,13 @@ $(document).ready(function(){
             var setB = d.b.asSet();
             var common = setA.intersection(setB);
             d.a.selectAll('rect.pixel')
-                .classed('hover', function(d){ return common.has(d); });
+                .classed('similar', function(d){ return common.has(d); });
             d.b.selectAll('rect.pixel')
-                .classed('hover', function(d){ return common.has(d); });
+                .classed('similar', function(d){ return common.has(d); });
                 
             d3.select('#element-label').html(d.similarity + " matched states");
             d3.select('#class-label').html(common.count() + " shared elements");
+            d3.select('#class-label').classed('similar', true);
         };
         
         /**
@@ -797,20 +849,26 @@ $(document).ready(function(){
         Called when the mouse leaves a similarity band.
         **/
         _obj.onBandMouseleave = function(d){
-            d3.select(this).classed('hover', false);
+            if(_selection.length >= 1){ return; }
             
+            d3.select(this).classed('hover', false);
             d3.select('#element-label').html("");
             d3.select('#class-label').html("");
+            d3.select('#class-label').classed('similar', false);
             
             _pixelLayers.forEach(function(p){
                 p.fadeIn();
             });
             fadeBands();
-            
-            d.a.selectAll('rect.pixel')
-                .classed('hover', false);
-            d.b.selectAll('rect.pixel')
-                .classed('hover', false);
+
+            if(_selection.indexOf(d.a) == -1){
+                d.a.selectAll('rect.pixel')
+                    .classed('similar', false);
+            }
+            if(_selection.indexOf(d.b) == -1){
+                d.b.selectAll('rect.pixel')
+                    .classed('similar', false);
+            }
         };
         
         /**
@@ -818,17 +876,18 @@ $(document).ready(function(){
         Called when a similarity band is pressed
         **/
         _obj.onBandClick = function(d){
-            var a = d.a;
-            var b = d.b;
+            var label1 = d3.select('#element-label').html()
+            var label2 = d3.select('#class-label').html();
             
-            // Merge the two ends of the band together
-            _obj.onBandMouseleave.call(this, d);
-            b.expression().merge(a.expression(), false);
-            b.redraw();
-            removeLayer(a);
+            _selection = [d.a.uuid(), d.b.uuid(), this, d, label1, label2];
+            d3.event.stopPropagation();
             
-            // Update the similarity bands
-            updateBands([b,]);
+            _pixelLayers.forEach(function(p){
+                p.highlight(false);
+                if(_selection.indexOf(p.uuid()) == -1){
+                    p.highlightGroups(false);
+                }
+            });
         };
         
         /** 
@@ -1004,6 +1063,20 @@ $(document).ready(function(){
             return bands;
         }
         
+        
+        function clearSelection(){
+            if(_selection.length < 1){ return; }
+            var _this = _selection[2];
+            var band = _selection[3];
+            _selection = [];
+            _obj.onBandMouseleave.call(_this, band);
+            _pixelLayers.forEach(function(p){
+                p.highlight(true);
+                p.highlightGroups(true);
+            });
+        }
+        
+        
         /**
         #### .onZoomstart()
         Called when the zoom event starts.
@@ -1068,6 +1141,8 @@ $(document).ready(function(){
                 .y((row * (184 + 30) + 60) - _zoomPan[1])
                 .on('mousedown', _obj.onMousedown)
                 .on('mouseup', _obj.onMouseup)
+                .on('mouseenter', _obj.onMouseEnter)
+                .on('mouseleave', _obj.onMouseLeave)
                 .on('mouseenter.pixel', _obj.onElementMouseenter)
                 .on('mouseleave.pixel', _obj.onElementMouseleave)
                 .on('mouseenter.group', _obj.onGroupMouseenter)
@@ -1087,6 +1162,8 @@ $(document).ready(function(){
         Draws a new PixelLayer.
         **/
         _obj.drawPixelLayer = function(dataCase){
+            clearSelection();
+            
             // Construct the SetExpression
             var node = DataNode(dataCase);
             var operator = OperatorNode('AND');
@@ -1102,7 +1179,7 @@ $(document).ready(function(){
         #### .init()
         Initializes the contoller.
         **/
-        _obj.init = function(){
+        _obj.init = function(){    
             // In order to get the correct boundaries of the trash icon, we
             // need to briefly unhide it.
             d3.select(_trash).classed('hidden', false);
@@ -1136,9 +1213,6 @@ $(document).ready(function(){
             d3.select(_zoomDiv).select('#zoom-in-btn')
                 .on('mousedown', function(d){
                     // TODO: Set interval to listen to repeated mouse clicks
-                    
-                    
-                    
                     var invert = zoomBtnScale.invert(_zoomScale) + 1;
                     _obj.scale(zoomBtnScale(invert)); 
                 });
@@ -1147,6 +1221,10 @@ $(document).ready(function(){
                     var invert = zoomBtnScale.invert(_zoomScale) - 1;
                     _obj.scale(zoomBtnScale(invert)); 
                 });
+                
+            // Hook up events to clear the selection
+            d3.select(_canvas).on('click', clearSelection);
+                
             
             return _obj;
         };

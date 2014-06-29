@@ -101,6 +101,8 @@ function PixelLayer(anchor){
     
     var _faded = false;
     var _simple = false;
+    var _highlight = true;
+    var _highlightGroups = true;
     
     
     // The event listeners available for this chart
@@ -271,15 +273,20 @@ function PixelLayer(anchor){
             .on('mouseenter', function(d){ 
                 // Ignore the "null" group or when we are dragging
                 if(d.key.trim() === "" || _dragging){ return; }
-                d3.select(this).select('rect.pixel-border')
-                    .classed('invisible', false);
-                callListeners('mouseenter.group', this, d.key);
+                
+                if(_highlightGroups){
+                    d3.select(this).select('rect.pixel-border')
+                        .classed('invisible', false);
+                }
+                callListeners('mouseenter.group', this, d.key, _chart);
             })
             .on('mouseleave', function(d){
                 if(d.key.trim() === "" || _dragging){ return; }
-                d3.select(this).select('rect.pixel-border')
-                    .classed('invisible', true); 
-                callListeners('mouseleave.group', this, d.key);
+                if(_highlightGroups){
+                    d3.select(this).select('rect.pixel-border')
+                        .classed('invisible', true); 
+                }
+                callListeners('mouseleave.group', this, d.key, _chart);
             })
             .each(function(d){
                 // Create a border if the group is not null
@@ -324,17 +331,21 @@ function PixelLayer(anchor){
             .classed('pixel', true)
             .on('mouseenter', function(d,i){
                 if(_dragging){ return; }
-                d3.select(this).classed('hover', true);
-                callListeners('mouseenter.pixel', this, d.element, i);
+                if(_highlight){
+                    d3.select(this).classed('hover', true);
+                }
+                callListeners('mouseenter.pixel', this, d.element, i, _chart);
             })
             .on('mouseleave', function(d,i){
                 if(_dragging){ return; }
-                d3.select(this).classed('hover', false);
-                callListeners('mouseleave.pixel', this, d.element, i);
+                if(_highlight){
+                    d3.select(this).classed('hover', false);
+                }
+                callListeners('mouseleave.pixel', this, d.element, i, _chart);
             })
-            .on('mousedown', function(d,i){ callListeners('mousedown.pixel', this, d.element, i); })
-            .on('mouseup', function(d,i){ callListeners('mouseup.pixel', this, d.element, i); })
-            .on('click', function(d,i){ callListeners('click.pixel', this, d.element, i); });
+            .on('mousedown', function(d,i){ callListeners('mousedown.pixel', this, d.element, i, _chart); })
+            .on('mouseup', function(d,i){ callListeners('mouseup.pixel', this, d.element, i, _chart); })
+            .on('click', function(d,i){ callListeners('click.pixel', this, d.element, i, _chart); });
         
         // ENTER + UPDATE
         pixels
@@ -751,6 +762,27 @@ function PixelLayer(anchor){
     _chart.faded = function(){
         return _faded;
     };
+    
+    
+    /**
+    #### .highlight([boolean])
+    Turns on or off automatic pixel highlighting
+    **/
+    _chart.highlight = function(b){
+        if(!arguments.length){ return _highlight; }
+        _highlight = b;
+        return _chart;
+    }
+    
+    /**
+    #### .highlight([boolean])
+    Turns on or off automatic pixel group highlighting
+    **/
+    _chart.highlightGroups = function(b){
+        if(!arguments.length){ return _highlightGroups; }
+        _highlightGroups = b;
+        return _chart;
+    }    
     
     /**
     #### .elements([array])
