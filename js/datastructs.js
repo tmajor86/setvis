@@ -335,6 +335,45 @@ function SetExpression(root,e){
     };
     
     /**
+    #### .jaccard(expression)
+    Calculates the jaccard index between this and another expression.
+    **/
+    _obj.jaccard = function(o,e){
+        var metric = 0;
+        var union = 0;
+        e.forEach(function(e){
+            var visitor = ValueCalculator(e);
+            var myValue;
+            var otherValue;
+            
+            // Gather the statistics about the value and presence/absence of the
+            // element in the two expressions.
+            _root.accept(visitor);
+            myValue = visitor.value();
+            
+            visitor.reset();
+            
+            o.accept(visitor);
+            otherValue = visitor.value();
+            
+            // The element is found in the union of both sets
+            if(myValue > 0 || otherValue > 0){
+                union += 1;
+            }
+            
+            // The element is found in both expressions; the similarity
+            // increases.
+            if(myValue > 0 && otherValue > 0){ 
+                metric += 1;
+                return; 
+            }
+        });
+        
+        return (parseFloat(metric) / union);
+    }
+    
+    
+    /**
     #### .similarity(expression, elements)
     Calculates the similarity between this expression and another one, based
     on the given element set.
@@ -343,89 +382,43 @@ function SetExpression(root,e){
         If the value of e is 1 in one expression, and 0 in the other, the
         element is found in one expression, but not the other. The similarity
         metric is not increased.
-    
-        If the value of e is 1 in one expression and > 0 in the other, the
-        element is found in one expression and at least partially found in the 
-        other. If one expression has a fractional value for e, then we are 
-        looking at an "OR" with a certain number of data sets containing the
-        element and a certain number without. The similarity metric increases 
-        by the lesser of the two numbers; a value in the range (0,1].
-    
-        If the value of e is 0 in one expression and < 1 in the other, the
-        element is completely absent from one and at least partially absent from
-        the other. The simliarity score increases by 1 - the greater value of e;
-        a value in the range (0,1].
-    
-        If the value of e is between 0 and 1 in both expressions, things get a
-        little more complicated. This represents a composite of multiple data
-        sets. Each value is a fraction, such as 2/3 and 3/4, indicating how many
-        sets contain the element. To calculate similarity, we normalize the 
-        fractional values to a common denominator, then look at how many sets
-        contain the element and how many do not. For example,
 
-            2/3 = 8/12
-            3/4 = 9/12
-            No. of pairs of expressions with element:    8
-            No. of pairs of expressions without element: 3
-            ----------------------------------------------
-            Total No. of matching pairs                 11
-            ==============================================
-            Similarity:                              11/12
+        Otherwise, the metric increases by one.
+    
+    The metric is then divided by the total number of elements possible,
+    normalizing it to a value between [0,1].
     **/
     _obj.similarity = function(o,e){
         var metric = 0;
         e.forEach(function(e){
             var visitor = ValueCalculator(e);
-            var myValue, myPresence, myAbsence, myTotal;
-            var otherValue, otherPresence, otherAbsence, otherTotal;
+            var myValue;
+            var otherValue;
             
             // Gather the statistics about the value and presence/absence of the
             // element in the two expressions.
             _root.accept(visitor);
             myValue = visitor.value();
-            myPresence = visitor.presenceCount();
-            myAbsence = visitor.absenceCount();
-            myTotal = myPresence + myAbsence;
             
             visitor.reset();
             
             o.accept(visitor);
             otherValue = visitor.value();
-            otherPresence = visitor.presenceCount();
-            otherAbsence = visitor.absenceCount();
-            otherTotal = otherPresence + otherAbsence;
             
-            // The element is found in one expression but not the other; the
-            // similarity does not increase
-            if((myValue == 1 && otherValue == 0) || (myValue == 0 && otherValue == 1)){ return; }
             // The element is found in both expressions; the similarity
             // increases.
-            if(myValue == 1 || otherValue == 1){ 
-                metric += Math.min(myValue, otherValue); 
+            if(myValue > 0 && otherValue > 0){ 
+                metric += 1;
                 return; 
             }
             // The element is absent in both expressions; the similarity
             // increases.
-            if(myValue == 0 || otherValue == 0){ 
-                metric += 1 - Math.max(myValue, otherValue);
-                return;
-            }
-            // Special case: comparing two fractional values.
-            if((myValue < 1 && myValue > 0) && (otherValue < 1 && otherValue > 0)){
-                // Convert to the least common denominator
-                var denominator = lcm(myTotal, otherTotal);
-                var myFactor = (denominator / myTotal);
-                var otherFactor = (denominator / otherTotal);
-                myPresence = myFactor * myPresence;
-                myAbsence = myFactor * myAbsence;
-                otherPresence = otherFactor * otherPresence;
-                otherAbsence = otherFactor * otherAbsence;
-                
-                metric += (Math.min(myPresence, otherPresence) + Math.min(myAbsence, otherAbsence)) / parseFloat(denominator);
+            if(myValue == 0 && otherValue == 0){ 
+                metric += 1;
                 return;
             }
         });
-        return metric;
+        return (parseFloat(metric) / e.count());
     };
     
     /**

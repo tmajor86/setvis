@@ -14,7 +14,6 @@
 
         <link rel="stylesheet" href="css/normalize.css">
         <link rel="stylesheet" href="css/main.css">
-        <link rel="stylesheet" href="css/nprogress.css">
         <script src="js/vendor/modernizr-2.6.2.min.js"></script>
     </head>
     <body>
@@ -40,6 +39,13 @@
                 <div id="bands">
                     <label for="bands-cb">Similarity</label>
                     <input type="checkbox" id="bands-cb"></input>
+                </div>
+                <div id="metric">
+                    <!-- <label for="metric-select">Metric</label> -->
+                    <select id="metric-select" class="invisible">
+                      <option value="norm">OnSet</option>
+                      <option value="jaccard">Jaccard</option>
+                    </select>
                 </div>
                 <div id="zoom">
                   <div id="zoom-out-btn" title="Zoom out">-</div>

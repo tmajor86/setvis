@@ -357,15 +357,6 @@ psuedo-selector trick */
     right: 0px;
 }
 
-#bands {
-    position: fixed !important;
-    top: 60px;
-    right: 0px;
-    padding-right: 9px;
-    padding-bottom: 2px;
-    background-color: #222;
-}
-
 #lists{
     position: fixed !important;
     right: 0px;
@@ -506,12 +497,37 @@ psuedo-selector trick */
     color: white;
 }
 
-#bands label {
+#bands {
+    position: fixed !important;
+    top: 60px;
+    right: 0px;
+    padding-right: 9px;
+    padding-bottom: 2px;
+    background-color: #222;
+}
+
+#bands label,
+#metric label {
     margin-left: 11px;
 }
 
 #bands-cb {
     margin-left: 8px;
+}
+
+#metric {
+    position: fixed !important;
+    top: 84px;
+    right: 0px;
+    padding-right: 14px;
+    padding-bottom: 0px;
+    height: 0px;
+    background-color: #333;
+}
+
+#metric select{
+    margin-left: 16px;
+    font-size: 0.8em;
 }
 
 #zoom {
@@ -584,11 +600,12 @@ psuedo-selector trick */
     cursor: default;
 }
 
-#class-label.similar,
-rect.pixel.similar{
-    fill: rgb(255,248,191) !important;
+#class-label.similar{
+    color: #d6e6f8 !important;
 }
-
+rect.pixel.similar{
+    fill: #d6e6f8 !important;
+}
 
 rect.pixel.hover{
     fill: rgb(255,255,255) !important;

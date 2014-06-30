@@ -19,14 +19,14 @@ $(document).ready(function(){
         // 'this' is the PixelLayer
         var count = this.expression().count();
         if(this.__old__){ return d3.rgb(239,72,95); }
-        else if(count == 1){ return d3.rgb(88,153,230); }
+        else if(count == 1){ return d3.rgb(79,137,207); }
         else if(this.operator() === "OR"){ return d3.rgb(255,255,0); }
         else{ return d3.rgb(156,247,71); }
     };
     var labelColor    = function(){
         // 'this' is the PixelLayer
         if(isComposite(this)){ return d3.rgb(156,247,71); }
-        else{ return d3.rgb(88,153,230); }
+        else{ return d3.rgb(79,137,207); }
     };
     var bandColor     = function(d){
         var baseColor = d3.rgb(84,84,84);
@@ -36,8 +36,9 @@ $(document).ready(function(){
         return baseColor;
     }
     var bandScale     = d3.scale.linear()
-        .domain([60,225])
-        .range([2,30]);
+        .domain([0,1])
+        .range([2,35])
+        .clamp(true);
     var zoomRange     = [0.05, 20];
     var zoomBtnScale  = d3.scale.pow()
         .domain([0,20])
@@ -281,6 +282,7 @@ $(document).ready(function(){
         var _zoomThrottle = null;
         
         var _selection = [];
+        var _jaccard = false;
         
         /**
         #### .onMousedown()
@@ -812,8 +814,46 @@ $(document).ready(function(){
             var bands = d3.select(_canvas).select('g.bands');
             var hide  = b == undefined ? !bands.classed('hidden') : !b;
             bands.classed('hidden', hide);
+            showMetric(b);
             return _obj;
         };
+        
+        
+        function showMetric(b){
+            var metric = d3.select('#metric');
+            var zoom = d3.select('#zoom');
+            
+            if(b){
+                metric.classed('hidden', false);
+                metric.transition()
+                    .duration(500)
+                    .style('height', "22px")
+                    .style('padding-bottom', "2px")
+                    .each('end', function(){
+                        d3.select(this).select('select')
+                            .classed('invisible', false);
+                    });
+                zoom.transition()
+                    .duration(500)
+                    .style('top', "109px");
+            }
+            else{
+                metric.select('select')
+                    .classed('invisible', true);
+                metric.transition()
+                    .duration(500)
+                    .style('height', "0px")
+                    .style('padding-bottom', "0px")
+                    .each('end', function(){ d3.select(this).classed('hidden', true); })
+                zoom.transition()
+                    .duration(500)
+                    .style('top', "85px");
+            }
+            
+            
+            
+        }
+        
         
         /**
         #### .onBandMouseenter()
@@ -839,9 +879,18 @@ $(document).ready(function(){
             d.b.selectAll('rect.pixel')
                 .classed('similar', function(d){ return common.has(d); });
                 
-            d3.select('#element-label').html(d.similarity + " matched states");
+            if(_jaccard){
+                d3.select('#element-label').html("Jaccard index: " + d.similarity);
+            }
+            else{
+                var count = _data.elements().count();
+                // Round to deal with floating point errors
+                var matched = Math.round(d.similarity * count);
+                d3.select('#element-label').html(matched + " matched states");
+            }
             d3.select('#class-label').html(common.count() + " shared elements");
             d3.select('#class-label').classed('similar', true);
+  
         };
         
         /**
@@ -1051,11 +1100,19 @@ $(document).ready(function(){
                     }
                 }
                 
+                var similarity;
+                if(_jaccard){
+                    similarity = p[0].expression().jaccard(p[1].expression(), elements);
+                }
+                else{
+                    similarity = p[0].expression().similarity(p[1].expression(), elements);
+                }
+
                 // Create a new band
                 bands.push({
                     a: p[0],
                     b: p[1],
-                    similarity: p[0].expression().similarity(p[1].expression(), elements),
+                    similarity: similarity
                 });
                 createdCount += 1;
             });
@@ -1221,6 +1278,15 @@ $(document).ready(function(){
                     var invert = zoomBtnScale.invert(_zoomScale) - 1;
                     _obj.scale(zoomBtnScale(invert)); 
                 });
+                
+            // Hook up the metric selection
+            d3.select('#metric select').on('change', function(){
+                var option = this.options[this.selectedIndex].value;
+                if(option == "jaccard"){ _jaccard = true; }
+                else{ _jaccard = false; }
+                updateBands(_pixelLayers);
+            });
+                
                 
             // Hook up events to clear the selection
             d3.select(_canvas).on('click', clearSelection);
