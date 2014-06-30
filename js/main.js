@@ -880,7 +880,8 @@ $(document).ready(function(){
                 .classed('similar', function(d){ return common.has(d); });
                 
             if(_jaccard){
-                d3.select('#element-label').html("Jaccard index: " + d.similarity);
+                var format = d3.format(".3f");
+                d3.select('#element-label').html("Jaccard similarity: " + format(d.similarity));
             }
             else{
                 var count = _data.elements().count();
