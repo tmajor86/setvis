@@ -891,7 +891,6 @@ $(document).ready(function(){
             }
             d3.select('#class-label').html(common.count() + " shared elements");
             d3.select('#class-label').classed('similar', true);
-  
         };
         
         /**

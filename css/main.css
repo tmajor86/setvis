@@ -499,6 +499,7 @@ psuedo-selector trick */
 
 #bands {
     position: fixed !important;
+    width: 91px;
     top: 60px;
     right: 0px;
     padding-right: 9px;
@@ -526,6 +527,7 @@ psuedo-selector trick */
 }
 
 #metric select{
+    width: 70px;
     margin-left: 16px;
     font-size: 0.8em;
 }
