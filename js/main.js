@@ -18,14 +18,17 @@ $(document).ready(function(){
     var pixelColor    = function(){
         // 'this' is the PixelLayer
         var count = this.expression().count();
+        var not = this.expression().not();
         if(this.__old__){ return d3.rgb(239,72,95); }
+        else if(not){ return "#ffa3f6"; }
         else if(count == 1){ return d3.rgb(79,137,207); }
         else if(this.operator() === "OR"){ return d3.rgb(255,255,0); }
         else{ return d3.rgb(156,247,71); }
     };
     var labelColor    = function(){
         // 'this' is the PixelLayer
-        if(isComposite(this)){ return d3.rgb(156,247,71); }
+        if(this.expression().not()){ return "#ffa3f6"; }
+        else if(isComposite(this)){ return d3.rgb(156,247,71); }
         else{ return d3.rgb(79,137,207); }
     };
     var bandColor     = function(d){
@@ -282,6 +285,7 @@ $(document).ready(function(){
         var _zoomThrottle = null;
         
         var _selection = [];
+        var _cleared;
         var _jaccard = false;
         
         /**
@@ -323,7 +327,8 @@ $(document).ready(function(){
             d3.selectAll('path.band')
                 .each(function(d){
                     // Bring the non-faded bands to the front
-                    if(!d.a.faded() || !d.b.faded()){ d3.select(this).moveToFront(); }
+                    if(d.a.faded() || d.b.faded()){ d3.select(this).moveToBack(); }
+                    // if(!d.a.faded() || !d.b.faded()){ d3.select(this).moveToFront(); }
                 })
               .transition()
                 .duration(500)
@@ -352,7 +357,8 @@ $(document).ready(function(){
             d3.selectAll('path.band')
                 .each(function(d){
                     // Bring the non-faded bands to the front
-                    if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
+                    if(d.a.faded() || d.b.faded()){ d3.select(this).moveToBack(); }
+                    // if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
                 })
               .transition()
                 .duration(500)
@@ -811,6 +817,7 @@ $(document).ready(function(){
         current state. A boolean can be passed in to force a state.
         **/
         _obj.toggleBands = function(b){
+            clearSelection();
             var bands = d3.select(_canvas).select('g.bands');
             var hide  = b == undefined ? !bands.classed('hidden') : !b;
             bands.classed('hidden', hide);
@@ -925,6 +932,7 @@ $(document).ready(function(){
         Called when a similarity band is pressed
         **/
         _obj.onBandClick = function(d){
+            if(_cleared){ return; }
             var label1 = d3.select('#element-label').html()
             var label2 = d3.select('#class-label').html();
             
@@ -962,7 +970,8 @@ $(document).ready(function(){
             d3.selectAll('path.band')
                 .each(function(d){
                     // Bring the non-faded bands to the front
-                    if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
+                    if(d.a.faded() || d.b.faded()){ d3.select(this).moveToBack(); }
+                    // if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
                 })
               .transition()
                 .duration(500)
@@ -1005,7 +1014,8 @@ $(document).ready(function(){
                 .style('fill', "none")
                 .each(function(d){
                     // Bring the non-faded bands to the front
-                    if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
+                    if(d.a.faded() || d.b.faded()){ d3.select(this).moveToBack(); }
+                    // if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
                 })
                 .on('mouseenter', _obj.onBandMouseenter)
                 .on('mouseleave', _obj.onBandMouseleave)
@@ -1120,9 +1130,11 @@ $(document).ready(function(){
             return bands;
         }
         
-        
         function clearSelection(){
-            if(_selection.length < 1){ return; }
+            if(_selection.length < 1){ 
+                _cleared = false;
+                return; 
+            }
             var _this = _selection[2];
             var band = _selection[3];
             _selection = [];
@@ -1131,8 +1143,8 @@ $(document).ready(function(){
                 p.highlight(true);
                 p.highlightGroups(true);
             });
+            _cleared = true;
         }
-        
         
         /**
         #### .onZoomstart()
@@ -1287,11 +1299,8 @@ $(document).ready(function(){
                 updateBands(_pixelLayers);
             });
                 
-                
             // Hook up events to clear the selection
-            d3.select(_canvas).on('click', clearSelection);
-                
-            
+            d3.select(_canvas).on('mousedown', clearSelection);
             return _obj;
         };
         

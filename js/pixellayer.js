@@ -441,7 +441,7 @@ function PixelLayer(anchor){
         newLabels.append('svg:text')
             .classed('count', true);
         newLabels.append('svg:title')
-            .text(function(d) { return d.label;});
+            .text(function(d) { return (_expression.not() ? "NOT " : "") + d.label; });
         
         // ENTER + UPDATE
         labels
@@ -556,6 +556,7 @@ function PixelLayer(anchor){
             .classed('operator', true)
             .classed('hidden', true)
             .on('click', function(){
+                if(_expression.not()){ return; }
                 _chart.operator(_chart.operator() == "AND" ? "OR" : "AND");
                 _chart.redraw();
                 callListeners('change.operator', _chart, _chart.operator());
@@ -610,24 +611,35 @@ function PixelLayer(anchor){
         var count = _chart.expression().count();
         var color = _chart.labelColor();
         
-        var opLabel = _outerG.select('g.operator')
-            .classed('hidden', function(){ return count <= 1; });
-        opLabel.select('rect')
-            .attr('fill', function(d,i){ return color.call(_chart,d,i); });
-        opLabel.select('text')
-            .text(operator);
+        if(_expression.not()){
+            var opLabel = _outerG.select('g.operator')
+                .classed('hidden', false);
+            opLabel.select('rect')
+                .attr('fill', function(d,i){ return color.call(_chart,d,i); });
+            opLabel.select('text')
+                .text("NOT");
+        }
+        else{
+            var opLabel = _outerG.select('g.operator')
+                .classed('hidden', function(){ return count <= 1; });
+            opLabel.select('rect')
+                .attr('fill', function(d,i){ return color.call(_chart,d,i); });
+            opLabel.select('text')
+                .text(operator);
             
-        var opLabel = _outerG.select('g.count')
-            .classed('hidden', function(){ return count <= 1; });
-        opLabel.select('rect')
-            .attr('fill', function(d,i){ return color.call(_chart,d,i); });
-        opLabel.select('text')
-            .text(count);
+            var opLabel = _outerG.select('g.count')
+                .classed('hidden', function(){ return count <= 1; });
+            opLabel.select('rect')
+                .attr('fill', function(d,i){ return color.call(_chart,d,i); });
+            opLabel.select('text')
+                .text(count);
             
-        var opLabel = _outerG.select('g.x')
-            .classed('hidden', function(){ return count <= 1; });
-        opLabel.select('rect')
-            .attr('fill', function(d,i){ return color.call(_chart,d,i); });
+            var opLabel = _outerG.select('g.x')
+                .classed('hidden', function(){ return count <= 1; });
+            opLabel.select('rect')
+                .attr('fill', function(d,i){ return color.call(_chart,d,i); });
+        }
+
     }
     
     /**

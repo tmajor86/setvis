@@ -310,3 +310,109 @@ d3.selection.prototype.moveToBack = function() {
         } 
     }); 
 };
+
+/**
+#### d3.dispatch()
+Augments d3.dispatch to allow for the muting and unmuting of events.
+**/
+d3.dispatch = function() {
+    var dispatch = new mutable_dispatch(), i = -1, n = arguments.length;
+    while (++i < n) dispatch[arguments[i]] = mutable_dispatch_event(dispatch);
+    return dispatch;
+};
+
+function mutable_dispatch() {}
+
+mutable_dispatch.prototype.on = function(type, listener) {
+    var i = type.lastIndexOf("."), name = "";
+    if (i >= 0) {
+        name = type.substring(i + 1);
+        type = type.substring(0, i);
+    }
+    if (type) return arguments.length < 2 ? this[type].on(name) : this[type].on(name, listener);
+    if (arguments.length === 2) {
+        if (listener == null) for (type in this) {
+            if (this.hasOwnProperty(type)) this[type].on(name, null);
+        }
+        return this;
+    }
+};
+
+/**
+#### .mute(type[, muted])
+Mutes or unutes the event type. 
+
+The type string follows the same convention as d3.dispatch.on(). An optional
+namespace may be appended, such as "click.foo" to mute or unmute the event with
+that specific namespace. 
+
+If no namespace is appended, all listeners for the event type are muted or
+unmuted. For example, dispatch.mute('click', true) will mute all "click" events,
+including "click" and "click.foo". This means if you want to mute just the
+non-namespaced "click" event, you will have to unmute the namespaced events
+afterward.
+
+Passing in just the namespace mutes or unmutes all events with that namespace.
+For example, dispatch.mute('.foo', true) will mute all events namespaced with 
+".foo".
+
+If muted is not specified, the current muted status for the event is returned.
+**/
+mutable_dispatch.prototype.mute = function(type, muted){
+    var i = type.lastIndexOf("."), name = "";
+    if(i >= 0){
+        name = type.substring(i + 1);
+        type = type.substring(0, i);
+    }
+    if(type){ return arguments.length < 2 ? this[type].mute(name) : this[type].mute(name, muted); }
+    if(arguments.length === 2){
+        for(type in this){
+            if(this.hasOwnProperty(type)){ this[type].mute(name, muted); }
+        }
+        return this;
+    }
+};
+
+function mutable_dispatch_event(dispatch) {
+    var listeners = [], listenerByName = d3.map();
+    
+    function event() {
+        var z = listeners, i = -1, n = z.length, l;
+        while (++i < n) if ((l = z[i].on) && !z[i].muted) l.apply(this, arguments);
+        return dispatch;
+    }
+    
+    event.on = function(name, listener) {
+        var l = listenerByName.get(name), i;
+        if (arguments.length < 2) return l && l.on;
+        if (l) {
+            l.on = null;
+            l.muted = false;
+            listeners = listeners.slice(0, i = listeners.indexOf(l)).concat(listeners.slice(i + 1));
+            listenerByName.remove(name);
+        }
+        if (listener) listeners.push(listenerByName.set(name, {
+            on: listener,
+            muted: false,
+        }));
+        return dispatch;
+    };
+    
+    event.mute = function(name, muted){
+        if(name == ""){
+            var z = listeners, i = -1, n = z.length;
+            while(++i < n){ z[i].muted = muted; }
+        }
+        else{
+            var l = listenerByName.get(name), i;
+            if(arguments.length < 2){ return l && l.muted; }
+            if(l){ l.muted = muted; }
+        }
+        return dispatch;
+    };
+    
+    return event;
+}
+
+
+

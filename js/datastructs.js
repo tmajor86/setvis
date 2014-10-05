@@ -55,30 +55,36 @@ function SetDataSource(){
 
 
 /**
-## Set([data],[hashFunction])
-An implementation of a Set that allows objects to be stored. Both parameters are
-optional. The first is data to be stored in the set on initialization. The
-second is a hash function - it is passed the objects to be stored in the set and
-should return a unique hash that can be used to determine if the object is already
-in the set. If the hash function is not specified, the object hash will be its
-string value.
+## Set([data][,hashFunction])
+A set of objects.
+
+A set is a collection of distinct, non-duplicate objects. In other words,
+it is a collection of unique elements. A hash function is used by the set
+to determine uniqueness when adding and comparing elements. Two objects are
+identical iff their hashes are equal.
+
+The set takes two optional arguments. The first is data to be stored in the
+set on initialization. The second is the hash function - it is passed
+objects to be stored in the set and should return a unique hash for a 
+distinct object. If the hash function is not specified, an object's string
+value will be used. This is rarely the desired behavior. You may also create
+the set without initial data, but with a set hash function. To do this, pass
+a function as the first argument.
 **/
 function Set(data, hash){
-    var _data   = {};
-    var _hash   = hash;
-    var _obj    = {};
-    var _events = Events(_obj, ['change']);
-    
+    var _data = {};
+    var _hash = hash;
+    var _obj = {};
+
     /**
     #### .add(element)
     Adds an element to the set.
     **/
     _obj.add = function(e){
         _data[_hash(e)] = e;
-        _events.call('change');
         return e;
     };
-    
+
     /**
     #### .has(element)
     Returns true if the set contains the given element.
@@ -86,30 +92,28 @@ function Set(data, hash){
     _obj.has = function(e){
         return Object.prototype.hasOwnProperty.call(_data, _hash(e));
     };
-    
+
     /**
     #### .remove(element)
-    Removes an element from the set. It returns true if the element was contained
-    in the set and removed, false otherwise.
+    Removes an element from the set. It returns true if the element was
+    contained in the set and removed, false otherwise.
     **/
     _obj.remove = function(e){
         var hashed = _hash(e);
         var existed = Object.prototype.hasOwnProperty.call(_data, hashed);
         delete _data[hashed];
-        _events.call('change');
         return existed;
     };
-    
+
     /**
     #### .clear()
     Removes all elements from this set.
     **/
     _obj.clear = function(){
         _data = {};
-        _events.call('change');
         return true;
     };
-    
+
     /**
     #### .find(hash)
     Finds an element by hash and returns it.
@@ -117,87 +121,107 @@ function Set(data, hash){
     _obj.find = function(h){
         return _data[h];
     };
-    
+
     /**
     #### .count()
-    Returns the number of elements in this set
+    Returns the number of elements in this set.
     **/
     _obj.count = function(){
         var count = 0;
         _obj.forEach(function(){ count++; })
         return count;
     };
-    
+
     /**
     #### .intersection(Set)
-    Produces the intersection of two sets. Returns a new Set object.
+    Produces the intersection of two sets. Returns a new set.
     **/
     _obj.intersection = function(other){
-        var set = Set({}, _hash);
+        var set = utils.Set({}, _hash);
         other.forEach(function(e){
             if(_obj.has(e)){ set.add(e); }
         });
         return set;
     };
-    
+
     /**
     #### .union(Set)
-    Produces the union of two sets. Returns a new Set object.
+    Produces the union of two sets. Returns a new set.
     **/
     _obj.union = function(other){
-        var set = Set(_data, _hash);
+        var set = utils.Set({}, _hash);
+        _obj.forEach(function(e){
+            set.add(e);
+        });
         other.forEach(function(e){
             set.add(e);
-        })
+        });
         return set;
     };
-    
+      
+    /**
+    #### .subtraction(Set)
+    Returns the result of subtracting another set from this set. Returns a
+    new set.
+    **/
+    _obj.subtraction = function(other){
+        var set = utils.Set({}, _hash);
+        _obj.forEach(function(e){
+            set.add(e);
+        });
+        other.forEach(function(e){
+           set.remove(e); 
+        });
+        return set;
+    };
+
     /**
     #### .hash()
-    Returns the hash function used for this set
+    Gets the hash function used for this set.
     **/
     _obj.hash = function(){
         return _hash;
     };
-    
+
     /**
     #### .elements()
-    Returns all of the elements in this set. The returned order is arbitrary,
-    although it appears that, at least in Chrome, the returned order is the
-    same as the insertion order, i.e., Set([a,b,c]) will return [a,b,c].
+    Returns all of the elements in this set as an array. The returned order
+    is arbitrary, although it appears that - at least in Chrome - the
+    returned order is the same as the insertion order, i.e., Set([a,b,c])
+    will return [a,b,c].
     **/
     _obj.elements = function(){
         var elements = [];
         _obj.forEach(function(e){ elements.push(e); })
         return elements;
     };
-    
+
     /**
     #### .forEach(function)
-    Iterates over all the elements in this set, calling the given function. The
-    order of iteration is arbitrary.
+    Iterates over all the elements in the set, passing the element to the
+    desired iterator function. If the iterator function returns
+    utils.BREAKER, the loop will break and return. The returned order is
+    arbitrary.
     **/
-    _obj.forEach = function(f){
-        for(var hash in _data){
-            if(_data.hasOwnProperty(hash)){
-                f.call(_obj, _data[hash]);
+    _obj.forEach = function(iterator){
+        for(var hash in _data) {
+            if(_data.hasOwnProperty(hash)) {
+                if(iterator.call(_obj, _data[hash]) === false) return;
             }
         }
     };
     
-    // Create the initial set
-    if(!arguments.length || hash == undefined || hash == null){
-        _hash = function(e){ return "\x00" + e; };
-    }
-    else if(arguments.length == 1 && isFunction(data)){
-        _hash = data;
+    // Initialize the set
+    if(arguments.length < 2){
+        if(utils.isFunction(data)){ _hash = data; }
+        else{ _hash = function(e){ return "\x00" + e; }; }
     }
     if(isArray(data)){
         data.forEach(function(e){ _obj.add(e); });
     }
     
     return _obj;
-}
+};
 
 
 /**
@@ -298,10 +322,21 @@ function SetExpression(root,e){
     
     /**
     #### .root()
-    Returns the root of the expression. It is a DataNode.
+    Returns the root of the expression. It is an OperatorNode.
     **/
     _obj.root = function(){
         return _root;
+    };
+    
+    /**
+    #### .not()
+    NOTs the expression. Only supported for single layers.
+    **/
+    _obj.not = function(b){
+       if(_obj.count() > 1){ return false; }
+       if(!arguments.length){ return _root.children()[0].not(); }
+       _root.children()[0].not(b);
+       return _obj; 
     };
     
     /**
@@ -314,7 +349,6 @@ function SetExpression(root,e){
         _root.accept(visitor);
         return visitor.value();
     };
-    
     
     /**
     #### .contains(case)
@@ -371,7 +405,6 @@ function SetExpression(root,e){
         
         return (parseFloat(metric) / union);
     }
-    
     
     /**
     #### .similarity(expression, elements)
@@ -556,8 +589,8 @@ function SetExpression(root,e){
 /**
 ## OperatorNode(operator)
 Creates an operator node with the given operator. The current operators
-supported are: "AND" and "OR". Default is "AND". Each operator node may have
-other nodes as children to form an expression tree.
+supported are: "AND", "OR". Default is "AND". Each operator node may have other
+nodes as children to form an expression tree.
 **/
 function OperatorNode(operator){
     var _operator = operator;
@@ -642,8 +675,7 @@ function OperatorNode(operator){
             if(_children[i].contains(c)){ return true; }
         }
         return false;
-    };
-    
+    }; 
     
     /**
     #### .split([nested])
@@ -668,8 +700,7 @@ function OperatorNode(operator){
         _obj.clear();
         return newNodes;
     };
-    
-    
+
     /**
     #### .accept(visitor)
     Implements the visitor pattern to allow various operations on this node.
@@ -688,12 +719,13 @@ function OperatorNode(operator){
 /**
 ## DataNode(dataCase)
 This node represents a data case/data set in the boolean expression tree. These 
-nodes are found at the leaves of the tree.
+nodes are found at the leaves of the tree. The data node can be NOTed.
 **/
 function DataNode(dataCase){
     var _data = dataCase;
     var _obj = {};
     var _events = Events(_obj, ['change']);
+    var _not = false;
     
     /**
     #### .data()
@@ -704,13 +736,23 @@ function DataNode(dataCase){
     };
     
     /**
+    #### .not([boolean])
+    Gets or sets whether this data node is NOTed.
+    **/
+    _obj.not = function(b){
+        if(!arguments.length){ return _not; }
+        _not = b;
+        return _obj;
+    }
+    
+    /**
     #### .value(element)
     Returns 0 or 1 to indicate if the element exists in the data case.
     **/
     _obj.value = function(e){
-        return _data.set().has(e) ? 1 : 0;
+        if(_not){ return _data.set().has(e) ? 0 : 1; }
+        else{ return _data.set().has(e) ? 1 : 0; }
     };
-    
     
     /**
     #### .contains(case)
@@ -735,7 +777,6 @@ function DataNode(dataCase){
     return _obj;
 }
 
-
 /**
 #### isOperatorNode(node)
 Returns true if the node is an Operator node using duck-typing.
@@ -743,7 +784,6 @@ Returns true if the node is an Operator node using duck-typing.
 function isOperatorNode(n){
     return Object.prototype.toString.call(n.operator) === "[object Function]";
 }
-
 
 /**
 ## ValueCalculator(expression)
@@ -828,7 +868,6 @@ function ValueCalculator(element){
     
     return _obj;
 }
-
 
 /**
 ## SetCountCalculator

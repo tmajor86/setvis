@@ -499,7 +499,7 @@ psuedo-selector trick */
 
 #bands {
     position: fixed !important;
-    width: 91px;
+    width: 92px;
     top: 60px;
     right: 0px;
     padding-right: 9px;
@@ -520,7 +520,7 @@ psuedo-selector trick */
     position: fixed !important;
     top: 84px;
     right: 0px;
-    padding-right: 14px;
+    padding-right: 15px;
     padding-bottom: 0px;
     height: 0px;
     background-color: #333;
@@ -536,7 +536,7 @@ psuedo-selector trick */
     position: fixed;
     top: 85px;
     right: 0px;
-    width: 100px;
+    width: 101px;
     height: 20px;
     background-color: #222;
     color: #eee; 
