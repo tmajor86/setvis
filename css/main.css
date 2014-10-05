@@ -613,6 +613,17 @@ rect.pixel.hover{
     fill: rgb(255,255,255) !important;
 }
 
+rect.pixel.empty{
+    fill-opacity: 0.25;
+    fill: white !important;
+}
+
+rect.pixel.null{
+    fill-opacity: 0;
+    fill: black;
+}
+
+
 path.band.hover{
 /*    stroke: rgb(255,255,255) !important;*/
 }

@@ -20,14 +20,14 @@ $(document).ready(function(){
         var count = this.expression().count();
         var not = this.expression().not();
         if(this.__old__){ return d3.rgb(239,72,95); }
-        else if(not){ return "#ffa3f6"; }
+        else if(not){ return "#ff983e"; }
         else if(count == 1){ return d3.rgb(79,137,207); }
         else if(this.operator() === "OR"){ return d3.rgb(255,255,0); }
         else{ return d3.rgb(156,247,71); }
     };
     var labelColor    = function(){
         // 'this' is the PixelLayer
-        if(this.expression().not()){ return "#ffa3f6"; }
+        if(this.expression().not()){ return "#ff983e"; }
         else if(isComposite(this)){ return d3.rgb(156,247,71); }
         else{ return d3.rgb(79,137,207); }
     };

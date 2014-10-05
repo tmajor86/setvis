@@ -217,13 +217,14 @@ function PixelLayer(anchor){
     function createPixelGroups(){
         var columnCount = _chart.columns();
         var rowCount = _chart.rows();
+        var total = (rowCount * columnCount);
         
         // Calculate the values of the pixels
         var expression = _chart.expression();
         var valueAccessor = _chart.valueAccessor();
         var groupAccessor = _chart.groupAccessor();
         var data = _chart.elements()
-            .slice(0,(rowCount * columnCount))
+            .slice(0, total)
             .map(function(d,i){
                 var row = parseInt(i / rowCount);
                 var col = i - row * rowCount;
@@ -238,6 +239,25 @@ function PixelLayer(anchor){
                 };
             });
             
+        var count = data.length;
+        if(count < total){
+            var pad = Array.apply(null, new Array(total - data.length))
+                .map(function(d,i){ 
+                    var row = parseInt((i + count) / rowCount);
+                    var col = (i + count) - row * rowCount;
+                    return {
+                        value: null,
+                        pixelValue: null, 
+                        group: "",
+                        element: null,
+                        row: row,
+                        column: col,
+                        index: (i+count),
+                    };
+                });
+            data = data.concat(pad);
+        }
+        
         // Nest by groups, calculating the top right and bottom left pixels that
         // belong to each group.
         var groupRectDict = {};
@@ -329,23 +349,24 @@ function PixelLayer(anchor){
         pixels.enter()
           .append('svg:rect')
             .classed('pixel', true)
+            .classed('null', function(d){ return d.value == null; })
             .on('mouseenter', function(d,i){
-                if(_dragging){ return; }
+                if(_dragging || d.value == null){ return; }
                 if(_highlight){
                     d3.select(this).classed('hover', true);
                 }
                 callListeners('mouseenter.pixel', this, d.element, i, _chart);
             })
             .on('mouseleave', function(d,i){
-                if(_dragging){ return; }
+                if(_dragging || d.value == null){ return; }
                 if(_highlight){
                     d3.select(this).classed('hover', false);
                 }
                 callListeners('mouseleave.pixel', this, d.element, i, _chart);
             })
-            .on('mousedown', function(d,i){ callListeners('mousedown.pixel', this, d.element, i, _chart); })
-            .on('mouseup', function(d,i){ callListeners('mouseup.pixel', this, d.element, i, _chart); })
-            .on('click', function(d,i){ callListeners('click.pixel', this, d.element, i, _chart); });
+            .on('mousedown', function(d,i){ if(d.value == null){ return; } callListeners('mousedown.pixel', this, d.element, i, _chart); })
+            .on('mouseup', function(d,i){ if(d.value == null){ return; } callListeners('mouseup.pixel', this, d.element, i, _chart); })
+            .on('click', function(d,i){ if(d.value == null){ return; } callListeners('click.pixel', this, d.element, i, _chart); });
         
         // ENTER + UPDATE
         pixels
@@ -355,7 +376,7 @@ function PixelLayer(anchor){
             .attr('transform', function(d,i){
                 return "translate(" + xScale(d.column) + "," + yScale(d.row) + ")";
             })
-            .style('fill-opacity', function(d){ return d.pixelValue > 0 ? 1 : 0; })
+            .style('fill-opacity', function(d){ return d.pixelValue > 0 ? 1 : 0.1; })
             .style('fill', function(d,i){
                 var color = pixelColor.call(_chart,d,i);
                 return d3.interpolateRgb(d3.rgb(0,0,0), color)(d.pixelValue);
@@ -469,6 +490,8 @@ function PixelLayer(anchor){
             .attr('y', 15)
             .text(function(d){ return d.count; })
             .classed('hidden', function(d){ return count > 1; });
+        labels.select('title')
+            .text(function(d) { return (_expression.not() ? "NOT " : "") + d.label; });
             
         // EXIT
         labels.exit().remove();
