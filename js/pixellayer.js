@@ -487,12 +487,15 @@ function PixelLayer(anchor){
         
         function recurse(node, parent, depth, x, dx, nodes) {
             var children = isOperatorNode(node) ? node.children() : null;
+            var siblingCount = parent ? parent.children().length - 1 : null;
+            var count = isOperatorNode(node) ? null : node.data().set().count();
+            var label = isOperatorNode(node) ? node.operator() : (node.not() && siblingCount > 0 ? "NOT " : "") +  node.data().label();
             var nodeObj = {
                 depth: depth,
                 node: node,
                 parent: parent,
-                label: isOperatorNode(node) ? node.operator() : node.data().label(),
-                count: isOperatorNode(node) ? null : node.data().set().count(),
+                label: label,
+                count: count,
                 x: x,
                 y: (depth * _labelHeight),
                 dx: dx,
@@ -556,11 +559,18 @@ function PixelLayer(anchor){
             .classed('operator', true)
             .classed('hidden', true)
             .on('click', function(){
-                if(_expression.not()){ return; }
-                _chart.operator(_chart.operator() == "AND" ? "OR" : "AND");
-                _chart.redraw();
-                callListeners('change.operator', _chart, _chart.operator());
-            })
+                var not = _chart.expression().not();
+                if(_chart.expression().count() == 1){ 
+                    _chart.expression().not(!not);
+                    _chart.redraw();
+                    callListeners('change.operator', _chart, "NOT");
+                }
+                else{
+                    _chart.operator(_chart.operator() == "AND" ? "OR" : "AND");
+                    _chart.redraw();
+                    callListeners('change.operator', _chart, _chart.operator());
+                }
+            });
         opLabel.append('svg:rect')
             .classed('operator', true)
             .attr('width', 40)
@@ -611,32 +621,65 @@ function PixelLayer(anchor){
         var count = _chart.expression().count();
         var color = _chart.labelColor();
         
-        if(_expression.not()){
+        if(count == 1){
             var opLabel = _outerG.select('g.operator')
                 .classed('hidden', false);
-            opLabel.select('rect')
-                .attr('fill', function(d,i){ return color.call(_chart,d,i); });
             opLabel.select('text')
                 .text("NOT");
+                
+            if(_chart.expression().not()){
+                opLabel.select('rect')
+                    .style('fill', function(d,i){ return color.call(_chart,d,i); })
+                    .style('stroke', "none")
+                    .style('fill-opacity', 1)
+                    .attr('x', 0)
+                    .attr('y', 0);
+                    
+                opLabel.select('text')
+                    .style('fill', "black")
+            }
+            else{
+                opLabel.select('rect')
+                    .style('stroke', _chart.borderColor())
+                    .style('stroke-width', 0.5)
+                    .style('fill', "black")
+                    .style('fill-opacity', 0.5)
+                    .attr('x', 0.5)
+                    .attr('y', -0.5);
+                    
+                opLabel.select('text')
+                    .style('fill', function(d,i){ return color.call(_chart,d,i); })
+            }
+            
+            _outerG.select('g.count')
+                .classed('hidden', true);
+                
+            _outerG.select('g.x')
+                .classed('hidden', true);
         }
         else{
             var opLabel = _outerG.select('g.operator')
                 .classed('hidden', function(){ return count <= 1; });
             opLabel.select('rect')
-                .attr('fill', function(d,i){ return color.call(_chart,d,i); });
+                .style('stroke', "none")
+                .style('fill', function(d,i){ return color.call(_chart,d,i); })
+                .style('fill-opacity', 1)
+                .attr('x', 0)
+                .attr('y', 0);
             opLabel.select('text')
+                .style('fill', "black")
                 .text(operator);
             
-            var opLabel = _outerG.select('g.count')
-                .classed('hidden', function(){ return count <= 1; });
-            opLabel.select('rect')
-                .attr('fill', function(d,i){ return color.call(_chart,d,i); });
-            opLabel.select('text')
+            var countLabel = _outerG.select('g.count')
+                .classed("hidden", false);
+            countLabel.select('rect')
+                .style('fill', function(d,i){ return color.call(_chart,d,i); });
+            countLabel.select('text')
                 .text(count);
             
-            var opLabel = _outerG.select('g.x')
-                .classed('hidden', function(){ return count <= 1; });
-            opLabel.select('rect')
+            var splitLabel = _outerG.select('g.x')
+                .classed("hidden", false);
+            splitLabel.select('rect')
                 .attr('fill', function(d,i){ return color.call(_chart,d,i); });
         }
 

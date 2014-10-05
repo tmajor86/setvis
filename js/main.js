@@ -1239,6 +1239,8 @@ $(document).ready(function(){
             var expression = SetExpression(operator, _data.elements());
             operator.addChild(node);
             
+            expression.not();
+            
             // Create and render the pixel layer
             var pl = createPixelLayer(expression).render();
             updateBands();
