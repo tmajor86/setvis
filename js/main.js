@@ -446,7 +446,7 @@ $(document).ready(function(){
                 if(layer == null){ return; }
                 else if(_selection.indexOf(layer.uuid()) == -1){ return; }
             }
-            d3.select('#class-label').html(group).classed('similar', false);
+            // d3.select('#class-label').html(group).classed('similar', false);
         };
         
         /**
@@ -1311,7 +1311,7 @@ $(document).ready(function(){
 
 
     // Load the data
-    var dataSource = AquaDataSource('data/aqua/order.csv', 'data/aqua/samples.csv')
+    var dataSource = AquaDataSource('data/senate/order.csv', 'data/senate/samples.csv')
     .on('success', function(elements, cases){
         // Initialize the main controller
         var controller = Controller("#canvas", "#trash", "#bands-cb", "#zoom", this).init();

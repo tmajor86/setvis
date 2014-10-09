@@ -319,7 +319,7 @@ function PixelLayer(anchor){
             });
 
         // ENTER + UPDATE GROUPS
-        drawGroupBorders(groups);
+        // drawGroupBorders(groups);
         drawPixels(groups);
         
         // EXIT GROUPS
