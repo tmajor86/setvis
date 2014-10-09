@@ -85,8 +85,8 @@ function PixelLayer(anchor){
     var _height = 184;
     var _xPos = 0;
     var _yPos = 0;
-    var _columns = 15;
-    var _rows = 15;
+    var _columns = 10;
+    var _rows = 10;
     
     var _pixelGap = 3;
     var _pixelColor = function(d,i){ return d3.rgb(17, 110, 220); }
