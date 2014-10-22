@@ -12,6 +12,8 @@ main.js
 // TODO zooming with buttons should go from center of canvas
 
 $(document).ready(function(){
+
+    console.log(sessionStorage.getItem("datatype"));
     // Global functions used to customize PixelLayer display and behavior
     var valueAccessor = function(d){ return d.value; };
     var groupAccessor = function(d){ return d.class; };
