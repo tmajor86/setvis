@@ -1313,7 +1313,7 @@ $(document).ready(function(){
 
 
     // Load the data
-    var dataSource = AquaDataSource('data/aqua/order.csv', 'data/aqua/samples.csv')
+    var dataSource = DataSource('data/aqua/order.csv', 'data/aqua/samples.csv')
     .on('success', function(elements, cases){
         // Initialize the main controller
         var controller = Controller("#canvas", "#trash", "#bands-cb", "#zoom", this).init();
@@ -1331,5 +1331,5 @@ $(document).ready(function(){
         .init();
     });
     
-    dataSource.load();
+    dataSource.preload();
 });
