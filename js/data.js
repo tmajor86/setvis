@@ -52,17 +52,18 @@ var DataSource = function(compoundsURL, samplesURL){
     function toDataCase(data){
         // Map the element names found in the data file to element objects found
         // in the compounds set and restrict to be a subset of the compounds set
+        // The first element in the data is the case identifier, so it is
+        // removed.
         var compounds = _obj.elements();
         var elements = data.slice(1)
         .map(function(d){ 
-            var mm = d;
-            return compounds.find(mm);
+            return compounds.find(d);
         })
         .filter(function(d){ 
             return d != undefined || d != null; 
         });
 
-        return DataCase(d[0], Set(elements, compoundHash));
+        return DataCase(data[0], Set(elements, compoundHash));
     }
     
     // Used as the hash function to store compounds in sets.
@@ -106,16 +107,17 @@ var DataSource = function(compoundsURL, samplesURL){
         d3.text(_samplesURL, function(err, txt){
             if(txt == null){ callListeners('fail', _obj, err); return; }
             d3.csv.parseRows(txt, extractCompounds);
-
+            
+            // Sort by number of occurences
             compoundListArray = d3.entries(compoundList).sort(function(a, b) {
                 return b.value - a.value;
             })
-            .filter(function(d, i){ 
-                return i < COMPOUND_COUNT;
-            })
             .map(function(d) {
                 return {
-                    'value': d['key'],
+                    // d3.map() inserts a NUL character at the beginning of its
+                    // keys that needs to be removed. Otherwise, we won't ever
+                    // be able to find items in the elements set.
+                    'value': d['key'].replace("\x00", ""),
                     'fullCount': parseInt(d['value']),
                     'class': ''
                 };
