@@ -12,8 +12,6 @@ main.js
 // TODO zooming with buttons should go from center of canvas
 
 $(document).ready(function(){
-
-    console.log(sessionStorage.getItem("datatype"));
     // Global functions used to customize PixelLayer display and behavior
     var valueAccessor = function(d){ return d.value; };
     var groupAccessor = function(d){ return d.class; };
@@ -41,15 +39,15 @@ $(document).ready(function(){
         return baseColor;
     }
     var bandScale     = d3.scale.linear()
-        .domain([0,1])
-        .range([2,35])
-        .clamp(true);
+    .domain([0,1])
+    .range([2,35])
+    .clamp(true);
     var zoomRange     = [0.05, 20];
     var zoomBtnScale  = d3.scale.pow()
-        .domain([0,20])
-        .range(zoomRange)
-        .clamp(true)
-        .exponent(2.5);
+    .domain([0,20])
+    .range(zoomRange)
+    .clamp(true)
+    .exponent(2.5);
     
     /**
     #### isComposite(PixelLayer)
@@ -100,7 +98,7 @@ $(document).ready(function(){
                 _listeners[evt][i].apply(thisObj, args);
             }
         }
-    
+
         /**
         #### applyListeners(event, this, [arg, ...])
         Calls the listeners of an event, except it takes an array of arguments
@@ -122,19 +120,19 @@ $(document).ready(function(){
                 page: elements.length,
             };
             var items = _elementList.select('.list').selectAll('li')
-                .data(elements);
-                
+            .data(elements);
+
             var newItems = items.enter()
-              .append('li')
-                .on('mouseenter.el', function(d){ callListeners('mouseenter.element', this, d); })
-                .on('mouseleave.el', function(d){ callListeners('mouseleave.element', this, d); })
-                .on('click.el', function(d){ callListeners('click.element', this, d); })
-                
+            .append('li')
+            .on('mouseenter.el', function(d){ callListeners('mouseenter.element', this, d); })
+            .on('mouseleave.el', function(d){ callListeners('mouseleave.element', this, d); })
+            .on('click.el', function(d){ callListeners('click.element', this, d); })
+
             newItems
-              .append('span')
-                .classed('name', true)
-                .html(function(d){ return d.value; });
-                
+            .append('span')
+            .classed('name', true)
+            .html(function(d){ return d.value; });
+
             elementList = new List('elements', options);
             elementList.sort('name');
             callListeners('populated.elements', _obj, elementList);
@@ -155,31 +153,31 @@ $(document).ready(function(){
                 valueNames: ['name', 'count', 'class'],
             };
             var scale = d3.scale.linear()
-                .domain([0, d3.max(cases, function(d){ return d.set().count(); })])
-                .range([0, 100]);
-                
+            .domain([0, d3.max(cases, function(d){ return d.set().count(); })])
+            .range([0, 100]);
+
             // Populate the list of samples
             var items = _caseList.select('.list').selectAll('li')
-                .data(cases);
+            .data(cases);
             var newItems = items.enter()
-              .append('li')
-              .on('mouseenter', function(d){ callListeners('mouseenter.case', _obj, d); })
-              .on('mouseleave', function(d){ callListeners('mouseleave.case', _obj, d); });
+            .append('li')
+            .on('mouseenter', function(d){ callListeners('mouseenter.case', _obj, d); })
+            .on('mouseleave', function(d){ callListeners('mouseleave.case', _obj, d); });
             
             newItems.append('span')
-                .classed('name', true)
-                .html(function(d){ return d.label(); });
+            .classed('name', true)
+            .html(function(d){ return d.label(); });
             newItems.append('span')
-                .classed('count', true)
-                .classed('hidden', true)
-                .html(function(d){ return d.set().count(); });
+            .classed('count', true)
+            .classed('hidden', true)
+            .html(function(d){ return d.set().count(); });
             newItems.append('div')
-                .classed('bar', true)
-                .style('width', function(d){ return scale(d.set().count()) + "%"; });
+            .classed('bar', true)
+            .style('width', function(d){ return scale(d.set().count()) + "%"; });
             newItems.append('button')
-                .attr('title', "Add")
-                .html("+")
-                .on('click', function(d){ callListeners('add.case', _obj, d); });
+            .attr('title', "Add")
+            .html("+")
+            .on('click', function(d){ callListeners('add.case', _obj, d); });
             
             
             // It appears that list.js is storing some things when a List
@@ -191,14 +189,14 @@ $(document).ready(function(){
             if(!_caseListObj){
                 _caseListObj = new List('samples', options);
                 _caseList.select('.clear-sort')
-                    .on('click', function(d){
-                        d3.selectAll('#samples .sort')
-                            .classed('asc', false)
-                            .classed('desc', false);
-                        d3.selectAll('#samples .list li').remove();
-                        populateCases(cases);
-                    });
-                    
+                .on('click', function(d){
+                    d3.selectAll('#samples .sort')
+                    .classed('asc', false)
+                    .classed('desc', false);
+                    d3.selectAll('#samples .list li').remove();
+                    populateCases(cases);
+                });
+
                 var matching = _caseListObj.matchingItems;
                 var str = matching.length + " sample" + (matching.length == 1 ? "" : "s");
                 _caseCount.text(str);
@@ -281,7 +279,7 @@ $(document).ready(function(){
         var _trashOverlap = false;
         
         var _zoom = d3.behavior.zoom()
-            .scaleExtent(zoomRange);
+        .scaleExtent(zoomRange);
         var _zoomScale = _zoom.scale();
         var _zoomPan   = _zoom.translate();
         var _zoomThrottle = null;
@@ -327,14 +325,14 @@ $(document).ready(function(){
             });
             
             d3.selectAll('path.band')
-                .each(function(d){
+            .each(function(d){
                     // Bring the non-faded bands to the front
                     if(d.a.faded() || d.b.faded()){ d3.select(this).moveToBack(); }
                     // if(!d.a.faded() || !d.b.faded()){ d3.select(this).moveToFront(); }
                 })
-              .transition()
-                .duration(500)
-                .style('stroke', function(d){ 
+            .transition()
+            .duration(500)
+            .style('stroke', function(d){ 
                     // We spoof our own fading function to fade the 
                     if(!d.a.faded() || !d.b.faded()){ 
                         d = {
@@ -357,14 +355,14 @@ $(document).ready(function(){
                 if(p.faded()){ p.fadeIn(); }
             });
             d3.selectAll('path.band')
-                .each(function(d){
+            .each(function(d){
                     // Bring the non-faded bands to the front
                     if(d.a.faded() || d.b.faded()){ d3.select(this).moveToBack(); }
                     // if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
                 })
-              .transition()
-                .duration(500)
-                .style('stroke', function(d){ return bandColor(d); });
+            .transition()
+            .duration(500)
+            .style('stroke', function(d){ return bandColor(d); });
         };
         
         /**
@@ -421,20 +419,20 @@ $(document).ready(function(){
                 else{
                     d3.select('#element-label').html("");
                     // d3.select('#element-label').html(_selection[4]);
-//                     d3.select('#class-label').html(_selection[5]);
-                    _selection[3].a.selectAll('rect.pixel').classed('hover', false);
-                    _selection[3].b.selectAll('rect.pixel').classed('hover', false);
-                    return;
-                }
-            }
-            
-            d3.select('#element-label').html("");
-            d3.selectAll('rect.pixel').classed('hover', false);
-            
-            _pixelLayers.forEach(function(p){
-                if(p.faded()){ p.fadeIn(); }
-            });
-            
+        //                     d3.select('#class-label').html(_selection[5]);
+        _selection[3].a.selectAll('rect.pixel').classed('hover', false);
+        _selection[3].b.selectAll('rect.pixel').classed('hover', false);
+        return;
+        }
+    }
+
+        d3.select('#element-label').html("");
+        d3.selectAll('rect.pixel').classed('hover', false);
+
+        _pixelLayers.forEach(function(p){
+        if(p.faded()){ p.fadeIn(); }
+    });
+
             // Update the band colorings, fading in if applicable
             fadeBands();
         };
@@ -734,9 +732,9 @@ $(document).ready(function(){
             
             // Create a new PixelLayer in the position of this one.
             createPixelLayer(oldExpr)
-                .x(this.x())
-                .y(this.y())
-                .render();
+            .x(this.x())
+            .y(this.y())
+            .render();
             // Change the expression of this PixelLayer to be the expression
             // split off from the old. This keeps the dragging intact.
             moveToFront(this);
@@ -766,9 +764,9 @@ $(document).ready(function(){
         Handles the 'click.split' event from a PixelLayer
         **/
         _obj.onSplitClick = function(){
-           split(this); 
-        };
-        
+         split(this); 
+     };
+
         /**
         #### .onOperatorChange(PixelLayer)
         Called when the operator of a pixel layer changes
@@ -835,28 +833,28 @@ $(document).ready(function(){
             if(b){
                 metric.classed('hidden', false);
                 metric.transition()
-                    .duration(500)
-                    .style('height', "22px")
-                    .style('padding-bottom', "2px")
-                    .each('end', function(){
-                        d3.select(this).select('select')
-                            .classed('invisible', false);
-                    });
+                .duration(500)
+                .style('height', "22px")
+                .style('padding-bottom', "2px")
+                .each('end', function(){
+                    d3.select(this).select('select')
+                    .classed('invisible', false);
+                });
                 zoom.transition()
-                    .duration(500)
-                    .style('top', "109px");
+                .duration(500)
+                .style('top', "109px");
             }
             else{
                 metric.select('select')
-                    .classed('invisible', true);
+                .classed('invisible', true);
                 metric.transition()
-                    .duration(500)
-                    .style('height', "0px")
-                    .style('padding-bottom', "0px")
-                    .each('end', function(){ d3.select(this).classed('hidden', true); })
+                .duration(500)
+                .style('height', "0px")
+                .style('padding-bottom', "0px")
+                .each('end', function(){ d3.select(this).classed('hidden', true); })
                 zoom.transition()
-                    .duration(500)
-                    .style('top', "85px");
+                .duration(500)
+                .style('top', "85px");
             }
             
             
@@ -884,10 +882,10 @@ $(document).ready(function(){
             var setB = d.b.asSet();
             var common = setA.intersection(setB);
             d.a.selectAll('rect.pixel')
-                .classed('similar', function(d){ return common.has(d); });
+            .classed('similar', function(d){ return common.has(d); });
             d.b.selectAll('rect.pixel')
-                .classed('similar', function(d){ return common.has(d); });
-                
+            .classed('similar', function(d){ return common.has(d); });
+
             if(_jaccard){
                 var format = d3.format(".3f");
                 d3.select('#element-label').html("Jaccard similarity: " + format(d.similarity));
@@ -921,11 +919,11 @@ $(document).ready(function(){
 
             if(_selection.indexOf(d.a) == -1){
                 d.a.selectAll('rect.pixel')
-                    .classed('similar', false);
+                .classed('similar', false);
             }
             if(_selection.indexOf(d.b) == -1){
                 d.b.selectAll('rect.pixel')
-                    .classed('similar', false);
+                .classed('similar', false);
             }
         };
         
@@ -956,7 +954,7 @@ $(document).ready(function(){
         similarities if there is a new band to add or remove, but if any "dirty"
         pixel layers are passed in to the function, bands connected to them will
         for sure be updated.
-        **/
+            **/
         function updateBands(d){
             var dirty = d == undefined ? [] : d;
             _similarityBands = createBands(dirty);
@@ -970,14 +968,14 @@ $(document).ready(function(){
         **/
         function fadeBands(){
             d3.selectAll('path.band')
-                .each(function(d){
+            .each(function(d){
                     // Bring the non-faded bands to the front
                     if(d.a.faded() || d.b.faded()){ d3.select(this).moveToBack(); }
                     // if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
                 })
-              .transition()
-                .duration(500)
-                .style('stroke', function(d){ return bandColor(d); });
+            .transition()
+            .duration(500)
+            .style('stroke', function(d){ return bandColor(d); });
         }
         
         /**
@@ -1001,27 +999,27 @@ $(document).ready(function(){
             
             var bandG = d3.select(_canvas).select('g.bands');
             var bands = bandG.selectAll('path.band')
-                .data(_similarityBands);
-                
+            .data(_similarityBands);
+
             // ENTER
             bands.enter()
-              .append('path')
-                .classed('band', true);
-                
+            .append('path')
+            .classed('band', true);
+
             // ENTER + UPDATE
             bands
-                .attr('d', path)
-                .style('stroke-width', function(d){ return bandScale(d.similarity); })
-                .style('stroke', function(d){ return bandColor(d); })
-                .style('fill', "none")
-                .each(function(d){
+            .attr('d', path)
+            .style('stroke-width', function(d){ return bandScale(d.similarity); })
+            .style('stroke', function(d){ return bandColor(d); })
+            .style('fill', "none")
+            .each(function(d){
                     // Bring the non-faded bands to the front
                     if(d.a.faded() || d.b.faded()){ d3.select(this).moveToBack(); }
                     // if(!d.a.faded() && !d.b.faded()){ d3.select(this).moveToFront(); }
                 })
-                .on('mouseenter', _obj.onBandMouseenter)
-                .on('mouseleave', _obj.onBandMouseleave)
-                .on('click', _obj.onBandClick);
+            .on('mouseenter', _obj.onBandMouseenter)
+            .on('mouseleave', _obj.onBandMouseleave)
+            .on('click', _obj.onBandClick);
             
             // EXIT
             bands.exit().remove();
@@ -1034,21 +1032,21 @@ $(document).ready(function(){
         function setMasks(){
             var maskG = d3.select(_canvas).select('g.masks');
             var masks = maskG.selectAll('rect.mask')
-                .data(_pixelLayers, function(p){ return p.uuid(); });
-                
+            .data(_pixelLayers, function(p){ return p.uuid(); });
+
             // ENTER
             masks.enter()
-              .append('svg:rect')
-                .attr('id', function(p){ return "mask-" + p.uuid(); })
-                .classed('mask', true);
-              
+            .append('svg:rect')
+            .attr('id', function(p){ return "mask-" + p.uuid(); })
+            .classed('mask', true);
+
             // UPDATE + ENTER
             masks
-                .attr('x', function(p){ return p.x(); })
-                .attr('y', function(p){ return p.y(); })
-                .attr('width', function(p){ return p.width(); })
-                .attr('height', function(p){ return p.height() + 20; })
-                .attr('fill', "black");
+            .attr('x', function(p){ return p.x(); })
+            .attr('y', function(p){ return p.y(); })
+            .attr('width', function(p){ return p.width(); })
+            .attr('height', function(p){ return p.height() + 20; })
+            .attr('fill', "black");
             
             masks.exit().remove();
         }
@@ -1080,11 +1078,11 @@ $(document).ready(function(){
                     var uuidA = sb.a.uuid();
                     var uuidB = sb.b.uuid();
                     if((uuid0 === uuidA && uuid1 === uuidB) ||
-                       (uuid0 === uuidB && uuid1 === uuidA)){
-                           found = sb;
-                           return;
-                    }
-                });
+                     (uuid0 === uuidB && uuid1 === uuidA)){
+                     found = sb;
+                 return;
+                     }
+                 });
                 return found;
             }
             
@@ -1130,8 +1128,8 @@ $(document).ready(function(){
             });
             removedCount = Math.max(_similarityBands.length - bands.length, 0);
             return bands;
-        }
-        
+        }   
+
         function clearSelection(){
             if(_selection.length < 1){ 
                 _cleared = false;
@@ -1147,13 +1145,13 @@ $(document).ready(function(){
             });
             _cleared = true;
         }
-        
+
         /**
         #### .onZoomstart()
         Called when the zoom event starts.
         **/
         _obj.onZoomstart = function(){};
-         
+
         
         /**
         #### .onZoom()
@@ -1161,11 +1159,11 @@ $(document).ready(function(){
         **/
         _obj.onZoom = function(){
             d3.select(_canvas + " g.layers")
-                .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+            .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
             d3.select(_canvas + " g.masks")
-                .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+            .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
             d3.select(_canvas + " g.bands")
-                .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
+            .attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
             _zoomScale = _zoom.scale();
             _zoomPan   = _zoom.translate();
             
@@ -1180,7 +1178,7 @@ $(document).ready(function(){
         Called when the zoom event ends.
         **/ 
         _obj.onZoomend = function(){
-            
+
         };
         
         /**
@@ -1203,27 +1201,38 @@ $(document).ready(function(){
             var row = parseInt(_pixelLayers.length / 5);
             var col = _pixelLayers.length - row * 5;
             
+            //Calculate rows and columns
+            var numrows = 20;
+            var numcols = 20;
+            var numElements = _data.elements().elements().length;
+            if(numElements < 400) { 
+                numrows = Math.ceil(Math.sqrt(numElements));
+                numcols = numrows;
+            }
+            
             var pl = PixelLayer(_canvas + " g.layers")
-                .elements(_data.elements().elements())
-                .expression(expression)
-                .pixelColor(pixelColor)
-                .labelColor(labelColor)
-                .x((col * (184 + 30) + 30) - _zoomPan[0])
-                .y((row * (184 + 30) + 60) - _zoomPan[1])
-                .on('mousedown', _obj.onMousedown)
-                .on('mouseup', _obj.onMouseup)
-                .on('mouseenter', _obj.onMouseEnter)
-                .on('mouseleave', _obj.onMouseLeave)
-                .on('mouseenter.pixel', _obj.onElementMouseenter)
-                .on('mouseleave.pixel', _obj.onElementMouseleave)
-                .on('mouseenter.group', _obj.onGroupMouseenter)
-                .on('mouseleave.group', _obj.onGroupMouseleave)
-                .on('dragstart', _obj.onDragstart)
-                .on('drag', _obj.onDrag)
-                .on('dragend', _obj.onDragend)
-                .on('drag.label', _obj.onLabelDrag)
-                .on('change.operator', _obj.onOperatorChange)
-                .on('click.split', _obj.onSplitClick);
+            .elements(_data.elements().elements())
+            .expression(expression)
+            .pixelColor(pixelColor)
+            .labelColor(labelColor)
+            .x((col * (184 + 30) + 30) - _zoomPan[0])
+            .y((row * (184 + 30) + 60) - _zoomPan[1])
+            .rows(numrows)
+            .columns(numcols)
+            .on('mousedown', _obj.onMousedown)
+            .on('mouseup', _obj.onMouseup)
+            .on('mouseenter', _obj.onMouseEnter)
+            .on('mouseleave', _obj.onMouseLeave)
+            .on('mouseenter.pixel', _obj.onElementMouseenter)
+            .on('mouseleave.pixel', _obj.onElementMouseleave)
+            .on('mouseenter.group', _obj.onGroupMouseenter)
+            .on('mouseleave.group', _obj.onGroupMouseleave)
+            .on('dragstart', _obj.onDragstart)
+            .on('drag', _obj.onDrag)
+            .on('dragend', _obj.onDragend)
+            .on('drag.label', _obj.onLabelDrag)
+            .on('change.operator', _obj.onOperatorChange)
+            .on('click.split', _obj.onSplitClick);
             _pixelLayers.unshift(pl);
             return pl;
         }
@@ -1262,39 +1271,39 @@ $(document).ready(function(){
             // Create the groups for the bands and the pixelLayers
             var bandG = d3.select(_canvas).append('svg:g');
             bandG.append('svg:g')
-                .classed('bands', true)
-                .classed('hidden', true);
+            .classed('bands', true)
+            .classed('hidden', true);
             bandG.append('svg:g')
-                .classed('masks', true);
+            .classed('masks', true);
             
             d3.select(_canvas).append('svg:g')
-                .classed('layers', true);
-                
+            .classed('layers', true);
+
             // Hook up zoom events
             _zoom
-                .on('zoomstart', _obj.onZoomstart)
-                .on('zoom', _obj.onZoom)
-                .on('zoomend', _obj.onZoomend);
+            .on('zoomstart', _obj.onZoomstart)
+            .on('zoom', _obj.onZoom)
+            .on('zoomend', _obj.onZoomend);
             d3.select(_canvas).call(_zoom);
-                
+
             // Hook up the similarity checkbox
             d3.select(_bandsCB)
-                .on('change', function(d){ _obj.toggleBands(this.checked); });
-                
+            .on('change', function(d){ _obj.toggleBands(this.checked); });
+
             // Hook up the zoom buttons
             var zoomStep = 0;
             d3.select(_zoomDiv).select('#zoom-in-btn')
-                .on('mousedown', function(d){
+            .on('mousedown', function(d){
                     // TODO: Set interval to listen to repeated mouse clicks
                     var invert = zoomBtnScale.invert(_zoomScale) + 1;
                     _obj.scale(zoomBtnScale(invert)); 
                 });
             d3.select(_zoomDiv).select('#zoom-out-btn')
-                .on('click', function(d){ 
-                    var invert = zoomBtnScale.invert(_zoomScale) - 1;
-                    _obj.scale(zoomBtnScale(invert)); 
-                });
-                
+            .on('click', function(d){ 
+                var invert = zoomBtnScale.invert(_zoomScale) - 1;
+                _obj.scale(zoomBtnScale(invert)); 
+            });
+
             // Hook up the metric selection
             d3.select('#metric select').on('change', function(){
                 var option = this.options[this.selectedIndex].value;
@@ -1302,7 +1311,7 @@ $(document).ready(function(){
                 else{ _jaccard = false; }
                 updateBands(_pixelLayers);
             });
-                
+
             // Hook up events to clear the selection
             d3.select(_canvas).on('mousedown', clearSelection);
             return _obj;
@@ -1311,10 +1320,23 @@ $(document).ready(function(){
         return _obj;
     };
 
+    //Check if data is custom or template
+    var datatype = sessionStorage.getItem("datatype");
+    if(datatype === "custom") {
+        var dataSource = DataSource()
+        .on('success', dataLoaded);
+        dataSource.loadCustomData(sessionStorage.getItem("data"));
+    } else if(datatype === "template") {
+        // Load the data
+        var dataSource = DataSource(sessionStorage.getItem("url"))
+        .on('success', dataLoaded);
+        dataSource.loadURL();
 
-    // Load the data
-    var dataSource = DataSource('data/aqua/order.csv', 'data/aqua/samples.csv')
-    .on('success', function(elements, cases){
+    } else {
+
+    }   
+
+    function dataLoaded(elements, cases){
         // Initialize the main controller
         var controller = Controller("#canvas", "#trash", "#bands-cb", "#zoom", this).init();
         
@@ -1329,7 +1351,8 @@ $(document).ready(function(){
         .on('mouseenter.case', controller.onCaseMouseenter)
         .on('mouseleave.case', controller.onCaseMouseleave)
         .init();
-    });
-    
-    dataSource.preload();
+
+        //Open list of elements
+        document.getElementById("samples-btn").click();
+    }
 });

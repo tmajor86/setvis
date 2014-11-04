@@ -4,10 +4,9 @@ var COMPOUND_COUNT = 225;
 ## DataSource
 The data source for general user-input data.
 **/
-var DataSource = function(compoundsURL, samplesURL){
+var DataSource = function(samplesURL){
     var _elements     = null;
     var _cases        = null;
-    var _compoundsURL = compoundsURL;
     var _samplesURL   = samplesURL;
     var _obj          = SetDataSource();
     
@@ -79,29 +78,7 @@ var DataSource = function(compoundsURL, samplesURL){
         return _cases;
     };
     
-    _obj.load = function(data){
-        // Get the compounds. They represent the elements of the universal set.
-        d3.csv(_compoundsURL, toElement, function(err, rows){
-            if(rows == null){ callListeners('fail', _obj, err); return; }
-            
-            _elements = Set(rows, compoundHash);
-            
-            // Get the data cases (samples). We loaded the compounds first so
-            // that we can map the elements in the samples to the elements in
-            // the compound set, i.e., we want the samples to contain the same
-            // objects as the compound set, complete with metadata, such as
-            // class, count, etc.
-            d3.text(_samplesURL, function(err, txt){
-                if(txt == null){ callListeners('fail', _obj, err); return; }
-                _cases = d3.csv.parseRows(txt, toDataCase);
-                callListeners('success', _obj, _elements, _cases);
-            });
-        });
-
-        return _obj;
-    };
-    
-    _obj.preload = function(data){
+    _obj.loadURL = function(data){
         compoundList = d3.map();
         // Get the compounds. They represent the elements of the universal set.
         d3.text(_samplesURL, function(err, txt){
@@ -134,7 +111,37 @@ var DataSource = function(compoundsURL, samplesURL){
 
         return _obj;
     };
+    
+    _obj.loadCustomData = function(txt){
+        compoundList = d3.map();
+        // Get the compounds. They represent the elements of the universal set.
+        
+        if(txt == null){ callListeners('fail', _obj, err); return; }
+        d3.csv.parseRows(txt, extractCompounds);
+        
+        // Sort by number of occurences
+        compoundListArray = d3.entries(compoundList).sort(function(a, b) {
+            return b.value - a.value;
+        })
+        .map(function(d) {
+            return {
+                // d3.map() inserts a NUL character at the beginning of its
+                // keys that needs to be removed. Otherwise, we won't ever
+                // be able to find items in the elements set.
+                'value': d['key'].replace("\x00", ""),
+                'fullCount': parseInt(d['value']),
+                'class': ''
+            };
+        });
 
+        _elements = Set(compoundListArray, compoundHash);
+
+        _cases = d3.csv.parseRows(txt, toDataCase);
+        callListeners('success', _obj, _elements, _cases);
+
+
+        return _obj;
+    };
 
     function extractCompounds(data) {
         data.slice(1)
