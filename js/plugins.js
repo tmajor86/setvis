@@ -414,5 +414,17 @@ function mutable_dispatch_event(dispatch) {
     return event;
 }
 
-
-
+export {
+  createUUID,
+  gcd,
+  lcm,
+  combinations,
+  rectOverlap,
+  pointDistance,
+  isArray,
+  isObject,
+  isFunction,
+  Events,
+  mutable_dispatch,
+  mutable_dispatch_event
+};
