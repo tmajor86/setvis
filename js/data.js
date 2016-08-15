@@ -1,3 +1,5 @@
+import {SetDataSource, DataCase, Set} from './datastructs';
+
 var COMPOUND_COUNT = 225;
 
 /**
@@ -9,6 +11,7 @@ var DataSource = function(samplesURL){
     var _cases        = null;
     var _samplesURL   = samplesURL;
     var _obj          = SetDataSource();
+    var _compoundList = d3.map();
     
     var _listeners    = {
         'success': [],
@@ -79,14 +82,14 @@ var DataSource = function(samplesURL){
     };
     
     _obj.loadURL = function(data){
-        compoundList = d3.map();
+        _compoundList = d3.map();
         // Get the compounds. They represent the elements of the universal set.
         d3.text(_samplesURL, function(err, txt){
             if(txt == null){ callListeners('fail', _obj, err); return; }
             d3.csv.parseRows(txt, extractCompounds);
             
             // Sort by number of occurences
-            compoundListArray = d3.entries(compoundList).sort(function(a, b) {
+            var compoundListArray = _compoundList.entries().sort(function(a, b) {
                 return b.value - a.value;
             })
             .map(function(d) {
@@ -113,14 +116,14 @@ var DataSource = function(samplesURL){
     };
     
     _obj.loadCustomData = function(txt){
-        compoundList = d3.map();
+        _compoundList = d3.map();
         // Get the compounds. They represent the elements of the universal set.
         
         if(txt == null){ callListeners('fail', _obj, err); return; }
         d3.csv.parseRows(txt, extractCompounds);
         
         // Sort by number of occurences
-        compoundListArray = d3.entries(compoundList).sort(function(a, b) {
+        var compoundListArray = _compoundList.entries().sort(function(a, b) {
             return b.value - a.value;
         })
         .map(function(d) {
@@ -148,10 +151,10 @@ var DataSource = function(samplesURL){
         .forEach(function(d) {
             if(d == "") {
                 return;
-            } else if(compoundList.has(d)) {
-                compoundList.set(d, compoundList.get(d) + 1);
+            } else if(_compoundList.has(d)) {
+                _compoundList.set(d, _compoundList.get(d) + 1);
             } else {
-                compoundList.set(d, 1);
+                _compoundList.set(d, 1);
             }
         })
     }
@@ -166,4 +169,7 @@ var DataSource = function(samplesURL){
     };
     
     return _obj;
+};
+export {
+  DataSource
 };
