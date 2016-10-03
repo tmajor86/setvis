@@ -11,7 +11,15 @@ main.js
 // TODO semantic zooming
 // TODO zooming with buttons should go from center of canvas
 
-$(document).ready(function(){
+import $ from 'jquery';
+
+import {DataSource} from './data';
+import {isOperatorNode, SetExpression, OperatorNode, DataNode} from './datastructs';
+import {PixelLayer} from './pixellayer';
+import List from './list';
+import {rectOverlap, combinations} from './plugins';
+
+export default function main() {
     // Global functions used to customize PixelLayer display and behavior
     var valueAccessor = function(d){ return d.value; };
     var groupAccessor = function(d){ return d.class; };
@@ -133,7 +141,7 @@ $(document).ready(function(){
             .classed('name', true)
             .html(function(d){ return d.value; });
 
-            elementList = new List('elements', options);
+            var elementList = new List('elements', options);
             elementList.sort('name');
             callListeners('populated.elements', _obj, elementList);
             
@@ -842,7 +850,7 @@ $(document).ready(function(){
                 });
                 zoom.transition()
                 .duration(500)
-                .style('top', "109px");
+                .style('top', "49px");
             }
             else{
                 metric.select('select')
@@ -854,7 +862,7 @@ $(document).ready(function(){
                 .each('end', function(){ d3.select(this).classed('hidden', true); })
                 zoom.transition()
                 .duration(500)
-                .style('top', "85px");
+                .style('top', "25px");
             }
             
             
@@ -1355,4 +1363,4 @@ $(document).ready(function(){
         //Open list of elements
         document.getElementById("samples-btn").click();
     }
-});
+};

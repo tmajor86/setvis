@@ -1,6 +1,8 @@
 // TODO Add some caching of calculated values, similarities, etc.
 // FIXME Fix bug(s) w/ arguments of Set constructor
 
+import {isFunction, isArray, isObject, Events} from './plugins';
+
 /**
 ## SetDataSource
 The "base" class for a source of set data. The source is responsible for
@@ -137,7 +139,7 @@ function Set(data, hash){
     Produces the intersection of two sets. Returns a new set.
     **/
     _obj.intersection = function(other){
-        var set = utils.Set({}, _hash);
+        var set = Set({}, _hash);
         other.forEach(function(e){
             if(_obj.has(e)){ set.add(e); }
         });
@@ -149,7 +151,7 @@ function Set(data, hash){
     Produces the union of two sets. Returns a new set.
     **/
     _obj.union = function(other){
-        var set = utils.Set({}, _hash);
+        var set = Set({}, _hash);
         _obj.forEach(function(e){
             set.add(e);
         });
@@ -165,7 +167,7 @@ function Set(data, hash){
     new set.
     **/
     _obj.subtraction = function(other){
-        var set = utils.Set({}, _hash);
+        var set = Set({}, _hash);
         _obj.forEach(function(e){
             set.add(e);
         });
@@ -213,7 +215,7 @@ function Set(data, hash){
     
     // Initialize the set
     if(arguments.length < 2){
-        if(utils.isFunction(data)){ _hash = data; }
+        if(isFunction(data)){ _hash = data; }
         else{ _hash = function(e){ return "\x00" + e; }; }
     }
     if(isArray(data)){
@@ -893,3 +895,15 @@ function SetCountCalculator(){
     
     return _obj;
 }
+
+export {
+  SetDataSource,
+  Set,
+  DataCase,
+  SetExpression,
+  OperatorNode,
+  DataNode,
+  isOperatorNode,
+  ValueCalculator,
+  SetCountCalculator
+};

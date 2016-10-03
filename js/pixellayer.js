@@ -5,6 +5,9 @@
     FIXME Labels w/ depth > 1 don't have gap
 */
 
+import {createUUID} from './plugins';
+import {isOperatorNode, Set} from './datastructs';
+
 
 /**
 ## BandScale
@@ -21,7 +24,7 @@ function BandScale() {
     var _scale = function (e) {
         var index = _domain.indexOf(e);
         if (index == 0) {
-            return value = _outerPadding;
+            return _outerPadding;
         } else {
             return index * (_scale.rangeBand() + _padding) + _outerPadding;
         }
@@ -178,7 +181,6 @@ function PixelLayer(anchor) {
         })
         .on('dragend', function () {
             _dragging = false;
-            _split = false;
             d3.event.sourceEvent.stopPropagation();
             callListeners('dragend', _chart);
         });
@@ -1294,3 +1296,6 @@ function PixelLayer(anchor) {
 
     return _chart;
 }
+export {
+  PixelLayer
+};
